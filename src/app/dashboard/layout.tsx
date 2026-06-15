@@ -1,5 +1,6 @@
 import { isSubscriptionActive, requireSession } from "@/lib/auth";
 import { DashboardNav } from "@/components/layout/dashboard-nav";
+import { PageBackNav } from "@/components/layout/page-back-nav";
 import { redirect } from "next/navigation";
 
 export default async function DashboardLayout({
@@ -20,7 +21,10 @@ export default async function DashboardLayout({
         userName={session.profile.full_name}
       />
       <main className="flex-1 pt-14 lg:pt-0">
-        <div className="mx-auto max-w-6xl p-4 sm:p-6">{children}</div>
+        <div className="mx-auto max-w-6xl p-4 sm:p-6">
+          <PageBackNav homeHref="/dashboard" homeLabel="Tableau de bord" />
+          {children}
+        </div>
       </main>
     </div>
   );

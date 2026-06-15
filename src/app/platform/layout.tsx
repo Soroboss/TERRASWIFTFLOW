@@ -1,5 +1,6 @@
 import { getSessionContext } from "@/lib/auth";
 import { PlatformNav } from "@/components/platform/platform-nav";
+import { PageBackNav } from "@/components/layout/page-back-nav";
 import { requirePlatformSession } from "@/lib/platform/auth";
 
 export default async function PlatformLayout({
@@ -18,7 +19,10 @@ export default async function PlatformLayout({
         hasTenantAccess={Boolean(tenantSession)}
       />
       <main className="flex-1 pt-14 lg:pt-0">
-        <div className="mx-auto max-w-7xl p-4 sm:p-6">{children}</div>
+        <div className="mx-auto max-w-7xl p-4 sm:p-6">
+          <PageBackNav homeHref="/platform" homeLabel="Vue d'ensemble" />
+          {children}
+        </div>
       </main>
     </div>
   );

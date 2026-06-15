@@ -87,7 +87,7 @@ export async function requirePlatformSession(
   minRole?: PlatformRole
 ): Promise<PlatformSession> {
   const session = await getPlatformSession();
-  if (!session) redirect("/login?next=/platform");
+  if (!session) redirect("/login");
 
   if (minRole === "super_admin" && session.platformUser.role !== "super_admin") {
     redirect("/platform");

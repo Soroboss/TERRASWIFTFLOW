@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { RegisterForm } from "@/components/auth/register-form";
+import { PageBackNav } from "@/components/layout/page-back-nav";
 import { SetupBanner } from "@/components/setup/setup-banner";
 import { TRIAL_DAYS } from "@/lib/pricing";
 
@@ -13,7 +14,10 @@ export default async function RegisterPage({ searchParams }: RegisterPageProps) 
   return (
     <div className="flex min-h-screen flex-col bg-muted/30">
       <SetupBanner />
-      <div className="flex flex-1 flex-col items-center justify-center p-4">
+      <div className="mx-auto w-full max-w-lg p-4">
+        <PageBackNav />
+      </div>
+      <div className="flex flex-1 flex-col items-center justify-center p-4 pt-0">
         <div className="mb-8 text-center">
           <Link href="/" className="text-3xl font-bold text-primary hover:opacity-90">
             TerraSwiftFlow

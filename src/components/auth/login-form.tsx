@@ -8,11 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { loginAction } from "@/lib/actions/auth";
 
-interface LoginFormProps {
-  nextPath?: string;
-}
-
-export function LoginForm({ nextPath }: LoginFormProps) {
+export function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -21,7 +17,7 @@ export function LoginForm({ nextPath }: LoginFormProps) {
   const handleLogin = async () => {
     setError(null);
     setLoading(true);
-    const result = await loginAction(email, password, nextPath);
+    const result = await loginAction(email, password);
     if (result?.error) {
       setError(result.error);
       setLoading(false);

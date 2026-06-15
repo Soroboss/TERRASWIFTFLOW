@@ -1,23 +1,18 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { LoginForm } from "@/components/auth/login-form";
+import { PageBackNav } from "@/components/layout/page-back-nav";
 import { SetupBanner } from "@/components/setup/setup-banner";
 import { getSessionContext } from "@/lib/auth";
 import { getPlatformSession } from "@/lib/platform/auth";
 
-interface LoginPageProps {
-  searchParams: Promise<{ next?: string }>;
-}
-
-export default async function LoginPage({ searchParams }: LoginPageProps) {
-  const { next } = await searchParams;
+export default async function LoginPage() {
   const [tenantSession, platformSession] = await Promise.all([
     getSessionContext(),
     getPlatformSession(),
   ]);
 
   if (tenantSession || platformSession) {
-    if (next?.startsWith("/platform") && platformSession) redirect(next);
     if (tenantSession) redirect("/dashboard");
     if (platformSession) redirect("/platform");
   }
@@ -25,7 +20,10 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   return (
     <div className="flex min-h-screen flex-col bg-muted/30">
       <SetupBanner />
-      <div className="flex flex-1 flex-col items-center justify-center p-4">
+      <div className="mx-auto w-full max-w-lg p-4">
+        <PageBackNav />
+      </div>
+      <div className="flex flex-1 flex-col items-center justify-center p-4 pt-0">
         <div className="mb-8 text-center">
           <Link href="/" className="text-3xl font-bold text-primary hover:opacity-90">
             TerraSwiftFlow
@@ -34,13 +32,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             Gestion immobilière — Côte d&apos;Ivoire
           </p>
         </div>
-        <LoginForm nextPath={next} />
-        <p className="mt-6 text-center text-xs text-muted-foreground">
-          Administrateur SaaS ?{" "}
-          <Link href="/login?next=/platform" className="text-primary hover:underline">
-            Accès plateforme
-          </Link>
-        </p>
+        <LoginForm />
       </div>
     </div>
   );

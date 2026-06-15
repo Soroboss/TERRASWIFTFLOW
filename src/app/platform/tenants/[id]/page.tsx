@@ -6,7 +6,6 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SUBSCRIPTION_STATUS_LABELS } from "@/types/platform";
 import { formatDate, formatFCFA } from "@/lib/format";
-import Link from "next/link";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -22,10 +21,7 @@ export default async function PlatformTenantDetailPage({ params }: PageProps) {
   return (
     <div className="space-y-6">
       <div>
-        <Link href="/platform/tenants" className="text-sm text-primary hover:underline">
-          ← Retour aux tenants
-        </Link>
-        <h1 className="mt-2 text-2xl font-bold">{tenant.name}</h1>
+        <h1 className="text-2xl font-bold">{tenant.name}</h1>
         <div className="mt-2 flex flex-wrap gap-2">
           <Badge className="capitalize">{tenant.plan}</Badge>
           <Badge variant="secondary">

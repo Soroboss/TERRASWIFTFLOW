@@ -2,6 +2,7 @@ import Link from "next/link";
 import { CheckCircle2, Circle, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageBackNav } from "@/components/layout/page-back-nav";
 import { getInsforgeConfigStatus, isInsforgeConfigured } from "@/lib/env";
 import { createClient } from "@/lib/insforge/server";
 
@@ -54,11 +55,9 @@ export default async function SetupPage() {
   return (
     <div className="min-h-screen bg-muted/20 px-4 py-12">
       <div className="mx-auto max-w-2xl space-y-8">
+        <PageBackNav />
         <div className="text-center">
-          <Link href="/" className="text-sm text-primary hover:underline">
-            ← Retour à l&apos;accueil
-          </Link>
-          <h1 className="mt-4 text-3xl font-bold">Configuration locale</h1>
+          <h1 className="text-3xl font-bold">Configuration locale</h1>
           <p className="mt-2 text-muted-foreground">
             Suivez ces étapes pour tester TerraSwiftFlow sur votre machine.
           </p>

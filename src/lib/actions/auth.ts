@@ -192,7 +192,7 @@ export async function resendVerificationEmailAction(email: string) {
   return { success: true };
 }
 
-export async function loginAction(email: string, password: string, nextPath?: string) {
+export async function loginAction(email: string, password: string) {
   const limited = await assertAuthRateLimit("auth:login");
   if (limited) return limited;
 
@@ -232,9 +232,6 @@ export async function loginAction(email: string, password: string, nextPath?: st
     getPlatformSession(),
   ]);
 
-  if (nextPath?.startsWith("/platform") && platformSession) {
-    redirect(nextPath);
-  }
   if (tenantSession) {
     redirect("/dashboard");
   }
