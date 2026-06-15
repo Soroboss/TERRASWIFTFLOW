@@ -2,7 +2,9 @@
 
 import { requireSession } from "@/lib/auth";
 import { normalizePhoneCI } from "@/lib/format";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/insforge/server";
+import { parseInput } from "@/lib/validations/parse";
+import { clientSchema } from "@/lib/validations/schemas";
 import type { Client, Profile } from "@/types/database";
 import type { ClientSource } from "@/types/entities";
 import { revalidatePath } from "next/cache";
@@ -19,8 +21,8 @@ export interface ClientInput {
 }
 
 export async function getClients(): Promise<Client[]> {
-  const supabase = createClient();
-  const { data, error } = await supabase
+  const insforge = await createClient();
+  const { data, error } = await insforge.database
     .from("clients")
     .select("*")
     .order("created_at", { ascending: false });
@@ -30,8 +32,8 @@ export async function getClients(): Promise<Client[]> {
 }
 
 export async function getClient(id: string): Promise<Client | null> {
-  const supabase = createClient();
-  const { data, error } = await supabase
+  const insforge = await createClient();
+  const { data, error } = await insforge.database
     .from("clients")
     .select("*")
     .eq("id", id)
@@ -42,8 +44,8 @@ export async function getClient(id: string): Promise<Client | null> {
 }
 
 export async function getOrganizationAgents(): Promise<Profile[]> {
-  const supabase = createClient();
-  const { data, error } = await supabase
+  const insforge = await createClient();
+  const { data, error } = await insforge.database
     .from("profiles")
     .select("*")
     .eq("active", true)
@@ -54,22 +56,26 @@ export async function getOrganizationAgents(): Promise<Profile[]> {
 }
 
 export async function createClientAction(input: ClientInput) {
+  const parsed = parseInput(clientSchema, input);
+  if ("error" in parsed) return { error: parsed.error };
+
   const session = await requireSession();
-  const supabase = createClient();
+  const insforge = await createClient();
+  const data = parsed.data;
 
   const assignedAgentId =
     session.profile.role === "agent"
       ? session.userId
-      : input.assigned_agent_id ?? session.userId;
+      : data.assigned_agent_id ?? session.userId;
 
-  const { error } = await supabase.from("clients").insert({
+  const { error } = await insforge.database.from("clients").insert({
     organization_id: session.profile.organization_id,
-    full_name: input.full_name,
-    phone: normalizePhoneCI(input.phone),
-    email: input.email ?? null,
-    is_diaspora: input.is_diaspora,
-    country: input.country,
-    source: input.source ?? null,
+    full_name: data.full_name,
+    phone: normalizePhoneCI(data.phone),
+    email: data.email ?? null,
+    is_diaspora: data.is_diaspora,
+    country: data.country,
+    source: data.source ?? null,
     assigned_agent_id: assignedAgentId,
   });
 
@@ -80,19 +86,23 @@ export async function createClientAction(input: ClientInput) {
 }
 
 export async function updateClientAction(id: string, input: ClientInput) {
-  await requireSession();
-  const supabase = createClient();
+  const parsed = parseInput(clientSchema, input);
+  if ("error" in parsed) return { error: parsed.error };
 
-  const { error } = await supabase
+  await requireSession();
+  const insforge = await createClient();
+  const data = parsed.data;
+
+  const { error } = await insforge.database
     .from("clients")
     .update({
-      full_name: input.full_name,
-      phone: normalizePhoneCI(input.phone),
-      email: input.email ?? null,
-      is_diaspora: input.is_diaspora,
-      country: input.country,
-      source: input.source ?? null,
-      assigned_agent_id: input.assigned_agent_id ?? null,
+      full_name: data.full_name,
+      phone: normalizePhoneCI(data.phone),
+      email: data.email ?? null,
+      is_diaspora: data.is_diaspora,
+      country: data.country,
+      source: data.source ?? null,
+      assigned_agent_id: data.assigned_agent_id ?? null,
     })
     .eq("id", id);
 
@@ -105,9 +115,9 @@ export async function updateClientAction(id: string, input: ClientInput) {
 
 export async function deleteClientAction(id: string) {
   await requireSession();
-  const supabase = createClient();
+  const insforge = await createClient();
 
-  const { error } = await supabase.from("clients").delete().eq("id", id);
+  const { error } = await insforge.database.from("clients").delete().eq("id", id);
   if (error) return { error: error.message };
 
   revalidatePath("/dashboard/clients");

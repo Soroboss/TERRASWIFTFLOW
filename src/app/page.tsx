@@ -1,11 +1,17 @@
 import { redirect } from "next/navigation";
 import { getSessionContext } from "@/lib/auth";
 import {
+  LandingCTA,
+  LandingFAQ,
   LandingFeatures,
   LandingFooter,
   LandingHeader,
   LandingHero,
+  LandingHowItWorks,
   LandingPricing,
+  LandingProblem,
+  LandingTestimonials,
+  LandingUseCases,
 } from "@/components/landing/landing-sections";
 import { SetupBanner } from "@/components/setup/setup-banner";
 
@@ -21,8 +27,14 @@ export default async function HomePage() {
       <LandingHeader />
       <main>
         <LandingHero />
+        <LandingProblem />
         <LandingFeatures />
+        <LandingHowItWorks />
+        <LandingUseCases />
+        <LandingTestimonials />
         <LandingPricing />
+        <LandingFAQ />
+        <LandingCTA />
       </main>
       <LandingFooter />
     </div>

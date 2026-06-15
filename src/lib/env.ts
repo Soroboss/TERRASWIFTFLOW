@@ -6,25 +6,31 @@ const PLACEHOLDER_PATTERNS = [
   "placeholder",
 ];
 
-export function isSupabaseConfigured(): boolean {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
-  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
-  const service = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
+export function isInsforgeConfigured(): boolean {
+  const url = process.env.NEXT_PUBLIC_INSFORGE_URL ?? "";
+  const anon = process.env.NEXT_PUBLIC_INSFORGE_ANON_KEY ?? "";
+  const apiKey = process.env.INSFORGE_API_KEY ?? "";
 
-  if (!url || !anon || !service) return false;
+  if (!url || !anon || !apiKey) return false;
   if (!url.startsWith("https://") || url.length < 20) return false;
-  if (anon.length < 20 || service.length < 20) return false;
+  if (anon.length < 20 || apiKey.length < 10) return false;
 
-  const combined = `${url}${anon}${service}`.toLowerCase();
+  const combined = `${url}${anon}${apiKey}`.toLowerCase();
   return !PLACEHOLDER_PATTERNS.some((p) => combined.includes(p));
 }
 
-export function getSupabaseConfigStatus() {
+/** @deprecated Utiliser isInsforgeConfigured */
+export const isSupabaseConfigured = isInsforgeConfigured;
+
+export function getInsforgeConfigStatus() {
   return {
-    configured: isSupabaseConfigured(),
-    hasUrl: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL),
-    hasAnonKey: Boolean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY),
-    hasServiceKey: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
-    url: process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
+    configured: isInsforgeConfigured(),
+    hasUrl: Boolean(process.env.NEXT_PUBLIC_INSFORGE_URL),
+    hasAnonKey: Boolean(process.env.NEXT_PUBLIC_INSFORGE_ANON_KEY),
+    hasApiKey: Boolean(process.env.INSFORGE_API_KEY),
+    url: process.env.NEXT_PUBLIC_INSFORGE_URL ?? "",
   };
 }
+
+/** @deprecated Utiliser getInsforgeConfigStatus */
+export const getSupabaseConfigStatus = getInsforgeConfigStatus;

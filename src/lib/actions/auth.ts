@@ -1,11 +1,29 @@
 "use server";
 
-import { createServiceClient } from "@/lib/supabase/admin";
-import { createClient } from "@/lib/supabase/server";
-import { normalizePhoneCI } from "@/lib/format";
-import { isSupabaseConfigured } from "@/lib/env";
-import { addDays } from "date-fns";
+import { createClient } from "@/lib/insforge/server";
+import { isInsforgeConfigured } from "@/lib/env";
+import { getClientIp } from "@/lib/security/client-ip";
+import {
+  AUTH_RATE_LIMIT,
+  AUTH_RESEND_RATE_LIMIT,
+  checkRateLimit,
+} from "@/lib/security/rate-limit";
+import { parseInput } from "@/lib/validations/parse";
+import {
+  loginSchema,
+  registerSchema,
+  resendEmailSchema,
+  verifyEmailSchema,
+} from "@/lib/validations/schemas";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { setAuthCookies, clearAuthCookies } from "@insforge/sdk/ssr";
+import type { Plan } from "@/types/database";
+import {
+  bootstrapOrganizationForUser,
+  consumePendingRegistrationCookie,
+  setPendingRegistrationCookie,
+} from "@/lib/auth/pending-registration";
 
 export interface RegisterInput {
   email: string;
@@ -13,90 +31,209 @@ export interface RegisterInput {
   fullName: string;
   organizationName: string;
   phone: string;
+  plan?: Plan;
+}
+
+function authRateLimitMessage(retryAfterSec?: number) {
+  const minutes = retryAfterSec ? Math.ceil(retryAfterSec / 60) : 15;
+  return `Trop de tentatives. Réessayez dans ${minutes} minute(s).`;
+}
+
+async function assertAuthRateLimit(
+  bucket: string,
+  options: { limit: number; windowMs: number } = AUTH_RATE_LIMIT
+) {
+  const headerList = await headers();
+  const ip = getClientIp(headerList);
+  const result = await checkRateLimit(bucket, ip, options);
+  if (!result.allowed) {
+    return { error: authRateLimitMessage(result.retryAfterSec) };
+  }
+  return null;
 }
 
 export async function registerAction(input: RegisterInput) {
-  if (!isSupabaseConfigured()) {
+  const limited = await assertAuthRateLimit("auth:register");
+  if (limited) return limited;
+
+  const parsed = parseInput(registerSchema, input);
+  if ("error" in parsed) return { error: parsed.error };
+
+  if (!isInsforgeConfigured()) {
     return {
       error:
-        "Supabase non configuré. Renseignez .env.local puis consultez /setup pour le guide.",
+        "InsForge non configuré. Renseignez .env.local puis consultez /setup pour le guide.",
     };
   }
 
-  const supabase = createClient();
+  const data = parsed.data;
+  const insforge = await createClient();
 
-  const { data: authData, error: authError } = await supabase.auth.signUp({
-    email: input.email,
-    password: input.password,
+  const { data: authData, error: authError } = await insforge.auth.signUp({
+    email: data.email,
+    password: data.password,
+    name: data.fullName,
+    redirectTo: `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/login`,
   });
 
   if (authError) {
     return { error: authError.message };
   }
 
-  if (!authData.user) {
+  if (!authData) {
     return { error: "Erreur lors de la création du compte." };
   }
 
-  const service = createServiceClient();
-  const trialEndsAt = addDays(new Date(), 14).toISOString();
-
-  const { data: org, error: orgError } = await service
-    .from("organizations")
-    .insert({
-      name: input.organizationName,
-      plan: "starter",
-      subscription_status: "trial",
-      trial_ends_at: trialEndsAt,
-      modules: {},
-    })
-    .select("id")
-    .single();
-
-  if (orgError || !org) {
-    return { error: "Impossible de créer l'organisation." };
+  if (authData.accessToken) {
+    const cookieStore = await cookies();
+    setAuthCookies(cookieStore, {
+      accessToken: authData.accessToken,
+      refreshToken: authData.refreshToken,
+    });
   }
 
-  const { error: profileError } = await service.from("profiles").insert({
-    id: authData.user.id,
-    organization_id: org.id,
-    full_name: input.fullName,
-    role: "owner",
-    phone: normalizePhoneCI(input.phone),
-    active: true,
-  });
+  const selectedPlan = data.plan === "pro" ? "pro" : "starter";
+  const pendingInput = {
+    email: data.email,
+    organizationName: data.organizationName,
+    fullName: data.fullName,
+    phone: data.phone,
+    plan: selectedPlan as Plan,
+  };
 
-  if (profileError) {
-    return { error: "Impossible de créer le profil utilisateur." };
+  if (authData.user?.id) {
+    const bootstrap = await bootstrapOrganizationForUser(authData.user.id, pendingInput);
+    if (bootstrap.error) return { error: bootstrap.error };
+  } else if (authData.requireEmailVerification) {
+    await setPendingRegistrationCookie(pendingInput);
+  } else {
+    return { error: "Erreur lors de la création du compte." };
+  }
+
+  if (!authData.accessToken || authData.requireEmailVerification) {
+    return {
+      needsVerification: true,
+      email: data.email,
+    };
   }
 
   redirect("/dashboard");
 }
 
-export async function loginAction(email: string, password: string) {
-  if (!isSupabaseConfigured()) {
-    return {
-      error:
-        "Supabase non configuré. Renseignez .env.local puis consultez /setup pour le guide.",
-    };
+export async function verifyEmailAction(email: string, otp: string) {
+  const limited = await assertAuthRateLimit("auth:verify");
+  if (limited) return limited;
+
+  const parsed = parseInput(verifyEmailSchema, { email, otp });
+  if ("error" in parsed) return { error: parsed.error };
+
+  if (!isInsforgeConfigured()) {
+    return { error: "InsForge non configuré." };
   }
 
-  const supabase = createClient();
-
-  const { error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
+  const insforge = await createClient();
+  const { data, error } = await insforge.auth.verifyEmail({
+    email: parsed.data.email,
+    otp: parsed.data.otp,
   });
 
   if (error) {
     return { error: error.message };
   }
 
+  if (!data?.accessToken) {
+    return { error: "Code invalide ou expiré." };
+  }
+
+  const cookieStore = await cookies();
+  setAuthCookies(cookieStore, {
+    accessToken: data.accessToken,
+    refreshToken: data.refreshToken,
+  });
+
+  const userId = data.user?.id;
+  if (userId) {
+    const pending = await consumePendingRegistrationCookie(parsed.data.email);
+    if (pending) {
+      const bootstrap = await bootstrapOrganizationForUser(userId, pending);
+      if (bootstrap.error) return { error: bootstrap.error };
+    }
+  }
+
+  redirect("/dashboard");
+}
+
+export async function resendVerificationEmailAction(email: string) {
+  const limited = await assertAuthRateLimit(
+    "auth:resend",
+    AUTH_RESEND_RATE_LIMIT
+  );
+  if (limited) return limited;
+
+  const parsed = parseInput(resendEmailSchema, { email });
+  if ("error" in parsed) return { error: parsed.error };
+
+  if (!isInsforgeConfigured()) {
+    return { error: "InsForge non configuré." };
+  }
+
+  const insforge = await createClient();
+  const { error } = await insforge.auth.resendVerificationEmail({
+    email: parsed.data.email,
+    redirectTo: `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/login`,
+  });
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  return { success: true };
+}
+
+export async function loginAction(email: string, password: string) {
+  const limited = await assertAuthRateLimit("auth:login");
+  if (limited) return limited;
+
+  const parsed = parseInput(loginSchema, { email, password });
+  if ("error" in parsed) return { error: parsed.error };
+
+  if (!isInsforgeConfigured()) {
+    return {
+      error:
+        "InsForge non configuré. Renseignez .env.local puis consultez /setup pour le guide.",
+    };
+  }
+
+  const insforge = await createClient();
+
+  const { data, error } = await insforge.auth.signInWithPassword({
+    email: parsed.data.email,
+    password: parsed.data.password,
+  });
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  if (!data?.accessToken) {
+    return { error: "Connexion impossible." };
+  }
+
+  const cookieStore = await cookies();
+  setAuthCookies(cookieStore, {
+    accessToken: data.accessToken,
+    refreshToken: data.refreshToken,
+  });
+
   redirect("/dashboard");
 }
 
 export async function logoutAction() {
-  const supabase = createClient();
-  await supabase.auth.signOut();
+  const insforge = await createClient();
+  await insforge.auth.signOut();
+
+  const cookieStore = await cookies();
+  clearAuthCookies(cookieStore);
+
   redirect("/login");
 }

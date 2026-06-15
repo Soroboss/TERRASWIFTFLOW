@@ -15,11 +15,11 @@ const STATUS_LABELS: Record<PropertyStatus, string> = {
 };
 
 interface PageProps {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 export default async function PlanDetailPage({ params }: PageProps) {
-  const { id } = params;
+  const { id } = await params;
   const [masterplan, lots] = await Promise.all([
     getMasterplan(id),
     getMasterplanLots(id),

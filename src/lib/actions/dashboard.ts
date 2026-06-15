@@ -2,18 +2,18 @@
 
 import { requireSession } from "@/lib/auth";
 import { buildScheduleWithPayments } from "@/lib/deals";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/insforge/server";
 import type { DashboardKPIs, Payment, PaymentSchedule } from "@/types/entities";
 import { addDays, format, startOfMonth } from "date-fns";
 
 export async function getDashboardKPIs(agentId?: string | null): Promise<DashboardKPIs> {
   await requireSession();
-  const supabase = createClient();
+  const insforge = await createClient();
   const today = format(new Date(), "yyyy-MM-dd");
   const monthStart = format(startOfMonth(new Date()), "yyyy-MM-dd");
   const weekEnd = format(addDays(new Date(), 7), "yyyy-MM-dd");
 
-  let dealsQuery = supabase
+  let dealsQuery = insforge.database
     .from("deals")
     .select("id, total_amount, status, agent_id, client:clients(full_name), property:properties(title)")
     .eq("status", "en_cours");
@@ -25,7 +25,7 @@ export async function getDashboardKPIs(agentId?: string | null): Promise<Dashboa
   const { data: activeDeals } = await dealsQuery;
   const dealIds = (activeDeals ?? []).map((d) => d.id as string);
 
-  let paymentsQuery = supabase.from("payments").select("amount, paid_at, deal_id");
+  let paymentsQuery = insforge.database.from("payments").select("amount, paid_at, deal_id");
   if (agentId && dealIds.length > 0) {
     paymentsQuery = paymentsQuery.in("deal_id", dealIds);
   } else if (agentId) {
@@ -39,7 +39,7 @@ export async function getDashboardKPIs(agentId?: string | null): Promise<Dashboa
     .filter((p) => p.paid_at.slice(0, 10) >= monthStart)
     .reduce((sum, p) => sum + Number(p.amount), 0);
 
-  let schedulesQuery = supabase
+  let schedulesQuery = insforge.database
     .from("payment_schedules")
     .select("*, deal:deals(id, status, agent_id, client:clients(full_name), property:properties(title))")
     .order("due_date");

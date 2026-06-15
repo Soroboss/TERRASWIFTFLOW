@@ -2,52 +2,52 @@ import Link from "next/link";
 import { CheckCircle2, Circle, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { getSupabaseConfigStatus, isSupabaseConfigured } from "@/lib/env";
-import { createClient } from "@/lib/supabase/server";
+import { getInsforgeConfigStatus, isInsforgeConfigured } from "@/lib/env";
+import { createClient } from "@/lib/insforge/server";
 
 async function testConnection(): Promise<{ ok: boolean; message: string }> {
-  if (!isSupabaseConfigured()) {
+  if (!isInsforgeConfigured()) {
     return { ok: false, message: "Variables d'environnement invalides ou placeholder." };
   }
 
   try {
-    const supabase = createClient();
-    const { error } = await supabase.from("organizations").select("id").limit(1);
+    const insforge = await createClient();
+    const { error } = await insforge.database.from("organizations").select("id").limit(1);
     if (error?.message.includes("does not exist") || error?.code === "42P01") {
       return {
         ok: false,
-        message: "Connexion OK mais tables manquantes — exécutez le SQL de migration.",
+        message: "Connexion OK mais tables manquantes — importez insforge/schema.sql.",
       };
     }
     if (error) {
       return { ok: false, message: error.message };
     }
-    return { ok: true, message: "Connexion Supabase et tables OK." };
+    return { ok: true, message: "Connexion InsForge et tables OK." };
   } catch (e) {
     return { ok: false, message: e instanceof Error ? e.message : "Erreur de connexion" };
   }
 }
 
 export default async function SetupPage() {
-  const config = getSupabaseConfigStatus();
+  const config = getInsforgeConfigStatus();
   const connection = config.configured ? await testConnection() : null;
 
   const steps = [
     {
-      done: config.hasUrl && !config.url.includes("votre-projet"),
-      label: "NEXT_PUBLIC_SUPABASE_URL dans .env.local",
+      done: config.hasUrl && !config.url.includes("placeholder"),
+      label: "NEXT_PUBLIC_INSFORGE_URL dans .env.local",
     },
     {
       done: config.hasAnonKey && config.configured,
-      label: "NEXT_PUBLIC_SUPABASE_ANON_KEY dans .env.local",
+      label: "NEXT_PUBLIC_INSFORGE_ANON_KEY dans .env.local",
     },
     {
-      done: config.hasServiceKey && config.configured,
-      label: "SUPABASE_SERVICE_ROLE_KEY dans .env.local",
+      done: config.hasApiKey && config.configured,
+      label: "INSFORGE_API_KEY dans .env.local",
     },
     {
       done: connection?.ok ?? false,
-      label: "Migrations SQL exécutées (tables créées)",
+      label: "Schéma SQL importé (tables créées)",
     },
   ];
 
@@ -101,51 +101,35 @@ export default async function SetupPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Étape 1 — Projet Supabase (gratuit)</CardTitle>
+            <CardTitle>Étape 1 — Projet InsForge</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-sm text-muted-foreground">
             <p>
-              1. Créez un projet sur{" "}
-              <a
-                href="https://supabase.com/dashboard"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-primary underline"
-              >
-                supabase.com
-              </a>
+              1. Liez le projet :{" "}
+              <code className="rounded bg-muted px-1">npx @insforge/cli link</code>
             </p>
-            <p>2. Allez dans <strong>Settings → API</strong> et copiez l&apos;URL et les clés.</p>
             <p>
-              3. Collez-les dans{" "}
-              <code className="rounded bg-muted px-1">.env.local</code> à la racine du projet.
+              2. Récupérez la clé anon :{" "}
+              <code className="rounded bg-muted px-1">npx @insforge/cli secrets get ANON_KEY</code>
+            </p>
+            <p>
+              3. Copiez l&apos;URL OSS et la clé API admin depuis{" "}
+              <code className="rounded bg-muted px-1">.insforge/project.json</code> dans{" "}
+              <code className="rounded bg-muted px-1">.env.local</code>.
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle>Étape 2 — Migrations SQL</CardTitle>
+            <CardTitle>Étape 2 — Schéma SQL + Storage</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-sm text-muted-foreground">
-            <p>
-              Dans Supabase → <strong>SQL Editor</strong>, exécutez dans l&apos;ordre :
-            </p>
-            <ol className="list-inside list-decimal space-y-1">
-              <li>
-                <code className="text-xs">supabase/migrations/001_initial_schema.sql</code>
-              </li>
-              <li>
-                <code className="text-xs">supabase/migrations/002_deals_constraints.sql</code>
-              </li>
-              <li>
-                (Optionnel) <code className="text-xs">supabase/seed.sql</code> pour des données de démo
-              </li>
-            </ol>
-            <p>
-              Ou exécutez le fichier combiné{" "}
-              <code className="rounded bg-muted px-1">supabase/full_schema.sql</code> en une seule fois.
-            </p>
+            <pre className="overflow-x-auto rounded-lg bg-zinc-900 p-4 text-zinc-100 text-xs">
+{`npx @insforge/cli db import insforge/schema.sql
+npx @insforge/cli storage create-bucket property-photos --public
+npx @insforge/cli storage create-bucket masterplan-images --public`}
+            </pre>
           </CardContent>
         </Card>
 

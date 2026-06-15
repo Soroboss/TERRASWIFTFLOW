@@ -4,6 +4,7 @@ import { getDashboardKPIs } from "@/lib/actions/dashboard";
 import { getTodayActivities } from "@/lib/actions/activities";
 import { getProperties } from "@/lib/actions/properties";
 import { formatDate, formatFCFA } from "@/lib/format";
+import { formatFcfa, getPlanById } from "@/lib/pricing";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ActivityList } from "@/components/activities/activity-list";
 import {
@@ -39,6 +40,8 @@ export default async function DashboardPage() {
   const reserves = properties.filter((p) => p.status === "reserve").length;
   const vendus = properties.filter((p) => p.status === "vendu").length;
 
+  const planInfo = getPlanById(organization.plan);
+
   return (
     <div className="space-y-6">
       <div>
@@ -50,9 +53,11 @@ export default async function DashboardPage() {
 
       {organization.subscription_status === "trial" && trialDaysLeft !== null && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-          Essai gratuit — {trialDaysLeft} jour{trialDaysLeft > 1 ? "s" : ""} restant
+          Essai {planInfo.name} — {trialDaysLeft} jour{trialDaysLeft > 1 ? "s" : ""} restant
           {trialDaysLeft > 1 ? "s" : ""}
           {organization.trial_ends_at && <> (expire le {formatDate(organization.trial_ends_at)})</>}
+          {" · "}
+          Puis {formatFcfa(planInfo.priceMonthly)} FCFA/mois
         </div>
       )}
 

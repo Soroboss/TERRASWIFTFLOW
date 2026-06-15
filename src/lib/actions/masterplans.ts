@@ -2,14 +2,14 @@
 
 import { requireSession } from "@/lib/auth";
 import { normalizeProperties } from "@/lib/properties";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/insforge/server";
 import type { Masterplan, Property } from "@/types/database";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 export async function getMasterplans(): Promise<Masterplan[]> {
-  const supabase = createClient();
-  const { data, error } = await supabase
+  const insforge = await createClient();
+  const { data, error } = await insforge.database
     .from("masterplans")
     .select("*")
     .order("created_at", { ascending: false });
@@ -19,8 +19,8 @@ export async function getMasterplans(): Promise<Masterplan[]> {
 }
 
 export async function getMasterplan(id: string): Promise<Masterplan | null> {
-  const supabase = createClient();
-  const { data, error } = await supabase
+  const insforge = await createClient();
+  const { data, error } = await insforge.database
     .from("masterplans")
     .select("*")
     .eq("id", id)
@@ -31,8 +31,8 @@ export async function getMasterplan(id: string): Promise<Masterplan | null> {
 }
 
 export async function getMasterplanLots(masterplanId: string): Promise<Property[]> {
-  const supabase = createClient();
-  const { data, error } = await supabase
+  const insforge = await createClient();
+  const { data, error } = await insforge.database
     .from("properties")
     .select("*")
     .eq("masterplan_id", masterplanId)
@@ -44,9 +44,9 @@ export async function getMasterplanLots(masterplanId: string): Promise<Property[
 
 export async function createMasterplanAction(name: string, totalLots: number) {
   const session = await requireSession();
-  const supabase = createClient();
+  const insforge = await createClient();
 
-  const { data, error } = await supabase
+  const { data, error } = await insforge.database
     .from("masterplans")
     .insert({
       organization_id: session.profile.organization_id,
@@ -64,7 +64,7 @@ export async function createMasterplanAction(name: string, totalLots: number) {
 
 export async function uploadMasterplanImageAction(formData: FormData) {
   const session = await requireSession();
-  const supabase = createClient();
+  const insforge = await createClient();
   const file = formData.get("file") as File | null;
   const masterplanId = formData.get("masterplanId") as string | null;
 
@@ -75,23 +75,20 @@ export async function uploadMasterplanImageAction(formData: FormData) {
   const ext = file.name.split(".").pop() ?? "jpg";
   const path = `${session.profile.organization_id}/${masterplanId}.${ext}`;
 
-  const { error: uploadError } = await supabase.storage
+  const { data: uploadData, error: uploadError } = await insforge.storage
     .from("masterplan-images")
-    .upload(path, file, { upsert: true });
+    .upload(path, file);
 
   if (uploadError) return { error: uploadError.message };
+  if (!uploadData?.url) return { error: "URL d'image introuvable." };
 
-  const { data: urlData } = supabase.storage
-    .from("masterplan-images")
-    .getPublicUrl(path);
-
-  const { error: updateError } = await supabase
+  const { error: updateError } = await insforge.database
     .from("masterplans")
-    .update({ image_url: urlData.publicUrl })
+    .update({ image_url: uploadData.url })
     .eq("id", masterplanId);
 
   if (updateError) return { error: updateError.message };
 
   revalidatePath(`/dashboard/plans/${masterplanId}`);
-  return { url: urlData.publicUrl };
+  return { url: uploadData.url };
 }

@@ -4,11 +4,11 @@ import { getMasterplans } from "@/lib/actions/masterplans";
 import { getProperty } from "@/lib/actions/properties";
 
 interface PageProps {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 export default async function ModifierBienPage({ params }: PageProps) {
-  const { id } = params;
+  const { id } = await params;
   const [property, masterplans] = await Promise.all([
     getProperty(id),
     getMasterplans(),

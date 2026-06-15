@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { getSupabaseConfigStatus, isSupabaseConfigured } from "@/lib/env";
-import { createClient } from "@/lib/supabase/server";
+import { getInsforgeConfigStatus, isInsforgeConfigured } from "@/lib/env";
+import { createClient } from "@/lib/insforge/server";
 
 export async function GET() {
-  const config = getSupabaseConfigStatus();
+  const config = getInsforgeConfigStatus();
 
   if (!config.configured) {
     return NextResponse.json({
@@ -14,15 +14,15 @@ export async function GET() {
   }
 
   try {
-    const supabase = createClient();
-    const { error } = await supabase.from("organizations").select("id").limit(1);
+    const insforge = await createClient();
+    const { error } = await insforge.database.from("organizations").select("id").limit(1);
 
     if (error?.code === "42P01" || error?.message.includes("does not exist")) {
       return NextResponse.json({
         status: "needs_migration",
         configured: true,
         db: false,
-        message: "Exécutez supabase/full_schema.sql dans Supabase SQL Editor",
+        message: "Importez insforge/schema.sql via npx @insforge/cli db import",
       });
     }
 
@@ -44,7 +44,7 @@ export async function GET() {
   } catch (e) {
     return NextResponse.json({
       status: "error",
-      configured: isSupabaseConfigured(),
+      configured: isInsforgeConfigured(),
       message: e instanceof Error ? e.message : "Erreur inconnue",
     });
   }

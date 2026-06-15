@@ -7,7 +7,9 @@ import {
   type PropertyDealCheck,
 } from "@/lib/deals";
 import { generatePaymentSchedule } from "@/lib/schedule";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/insforge/server";
+import { parseInput } from "@/lib/validations/parse";
+import { createDealSchema } from "@/lib/validations/schemas";
 import type { Client, Deal, Profile, Property } from "@/types/database";
 import type {
   DealFinancials,
@@ -19,8 +21,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 export async function getDeals(): Promise<DealWithRelations[]> {
-  const supabase = createClient();
-  const { data, error } = await supabase
+  const insforge = await createClient();
+  const { data, error } = await insforge.database
     .from("deals")
     .select("*, property:properties(*), client:clients(*), agent:profiles(*)")
     .order("created_at", { ascending: false });
@@ -30,8 +32,8 @@ export async function getDeals(): Promise<DealWithRelations[]> {
 }
 
 export async function getDeal(id: string): Promise<DealWithRelations | null> {
-  const supabase = createClient();
-  const { data, error } = await supabase
+  const insforge = await createClient();
+  const { data, error } = await insforge.database
     .from("deals")
     .select("*, property:properties(*), client:clients(*), agent:profiles(*)")
     .eq("id", id)
@@ -44,9 +46,9 @@ export async function getDeal(id: string): Promise<DealWithRelations | null> {
 export async function checkPropertyForDeal(
   propertyId: string
 ): Promise<PropertyDealCheck> {
-  const supabase = createClient();
+  const insforge = await createClient();
 
-  const { data: property } = await supabase
+  const { data: property } = await insforge.database
     .from("properties")
     .select("*")
     .eq("id", propertyId)
@@ -60,7 +62,7 @@ export async function checkPropertyForDeal(
     };
   }
 
-  const { data: activeDeal } = await supabase
+  const { data: activeDeal } = await insforge.database
     .from("deals")
     .select("*, client:clients(full_name), agent:profiles(full_name)")
     .eq("property_id", propertyId)
@@ -81,8 +83,8 @@ export async function checkPropertyForDeal(
 }
 
 export async function getAvailableProperties(): Promise<Property[]> {
-  const supabase = createClient();
-  const { data, error } = await supabase
+  const insforge = await createClient();
+  const { data, error } = await insforge.database
     .from("properties")
     .select("*")
     .eq("status", "libre")
@@ -97,22 +99,26 @@ export async function createDealAction(input: {
   client_id: string;
   total_amount: number;
 }) {
+  const parsed = parseInput(createDealSchema, input);
+  if ("error" in parsed) return { error: parsed.error };
+
   const session = await requireSession();
-  const check = await checkPropertyForDeal(input.property_id);
+  const data = parsed.data;
+  const check = await checkPropertyForDeal(data.property_id);
 
   if (check.blocked) {
     return { error: check.reason };
   }
 
-  const supabase = createClient();
-  const { data, error } = await supabase
+  const insforge = await createClient();
+  const { data: deal, error } = await insforge.database
     .from("deals")
     .insert({
       organization_id: session.profile.organization_id,
-      property_id: input.property_id,
-      client_id: input.client_id,
+      property_id: data.property_id,
+      client_id: data.client_id,
       agent_id: session.userId,
-      total_amount: input.total_amount,
+      total_amount: data.total_amount,
       status: "en_cours",
       signed_at: new Date().toISOString(),
     })
@@ -129,7 +135,7 @@ export async function createDealAction(input: {
   revalidatePath("/dashboard/deals");
   revalidatePath("/dashboard/biens");
   revalidatePath("/dashboard/plans");
-  redirect(`/dashboard/deals/${data.id}`);
+  redirect(`/dashboard/deals/${deal.id}`);
 }
 
 export async function generateScheduleAction(input: {
@@ -149,11 +155,11 @@ export async function generateScheduleAction(input: {
     firstDueDate: input.first_due_date,
   });
 
-  const supabase = createClient();
+  const insforge = await createClient();
 
-  await supabase.from("payment_schedules").delete().eq("deal_id", input.deal_id);
+  await insforge.database.from("payment_schedules").delete().eq("deal_id", input.deal_id);
 
-  const { error } = await supabase.from("payment_schedules").insert(
+  const { error } = await insforge.database.from("payment_schedules").insert(
     lines.map((line) => ({
       deal_id: input.deal_id,
       organization_id: session.profile.organization_id,
@@ -177,9 +183,9 @@ export async function updateScheduleLineAction(input: {
   label: string;
 }) {
   await requireSession();
-  const supabase = createClient();
+  const insforge = await createClient();
 
-  const { error } = await supabase
+  const { error } = await insforge.database
     .from("payment_schedules")
     .update({
       due_date: input.due_date,
@@ -198,10 +204,10 @@ export async function getDealFinancials(dealId: string): Promise<DealFinancials 
   const deal = await getDeal(dealId);
   if (!deal) return null;
 
-  const supabase = createClient();
+  const insforge = await createClient();
   const [{ data: schedules }, { data: payments }] = await Promise.all([
-    supabase.from("payment_schedules").select("*").eq("deal_id", dealId).order("due_date"),
-    supabase.from("payments").select("*").eq("deal_id", dealId).order("paid_at"),
+    insforge.database.from("payment_schedules").select("*").eq("deal_id", dealId).order("due_date"),
+    insforge.database.from("payments").select("*").eq("deal_id", dealId).order("paid_at"),
   ]);
 
   return buildDealFinancials(
@@ -218,8 +224,8 @@ export async function markDealSoldeAction(dealId: string) {
     return { error: `Encaissement incomplet — reste ${financials.remaining} FCFA.` };
   }
 
-  const supabase = createClient();
-  const { error } = await supabase
+  const insforge = await createClient();
+  const { error } = await insforge.database
     .from("deals")
     .update({ status: "solde" })
     .eq("id", dealId);
@@ -234,9 +240,9 @@ export async function markDealSoldeAction(dealId: string) {
 
 export async function cancelDealAction(dealId: string) {
   await requireSession();
-  const supabase = createClient();
+  const insforge = await createClient();
 
-  const { error } = await supabase
+  const { error } = await insforge.database
     .from("deals")
     .update({ status: "annule" })
     .eq("id", dealId);
@@ -254,8 +260,8 @@ export async function getDealByPropertyId(propertyId: string): Promise<{
   status: string;
   client?: { full_name: string } | { full_name: string }[] | null;
 } | null> {
-  const supabase = createClient();
-  const { data } = await supabase
+  const insforge = await createClient();
+  const { data } = await insforge.database
     .from("deals")
     .select("id, status, client:clients(full_name)")
     .eq("property_id", propertyId)

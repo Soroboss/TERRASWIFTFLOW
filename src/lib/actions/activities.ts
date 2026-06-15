@@ -1,17 +1,19 @@
 "use server";
 
 import { requireSession } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/insforge/server";
+import { parseInput } from "@/lib/validations/parse";
+import { activitySchema } from "@/lib/validations/schemas";
 import type { Activity, ActivityType } from "@/types/entities";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 export async function getTodayActivities(agentId?: string): Promise<Activity[]> {
   const session = await requireSession();
-  const supabase = createClient();
+  const insforge = await createClient();
   const today = new Date().toISOString().slice(0, 10);
 
-  let query = supabase
+  let query = insforge.database
     .from("activities")
     .select("*, client:clients(full_name)")
     .eq("done", false)
@@ -30,8 +32,8 @@ export async function getTodayActivities(agentId?: string): Promise<Activity[]> 
 }
 
 export async function getActivities(): Promise<Activity[]> {
-  const supabase = createClient();
-  const { data, error } = await supabase
+  const insforge = await createClient();
+  const { data, error } = await insforge.database
     .from("activities")
     .select("*, client:clients(full_name)")
     .order("due_at", { ascending: true });
@@ -46,16 +48,20 @@ export async function createActivityAction(input: {
   note?: string;
   due_at: string;
 }) {
-  const session = await requireSession();
-  const supabase = createClient();
+  const parsed = parseInput(activitySchema, input);
+  if ("error" in parsed) return { error: parsed.error };
 
-  const { error } = await supabase.from("activities").insert({
+  const session = await requireSession();
+  const insforge = await createClient();
+  const data = parsed.data;
+
+  const { error } = await insforge.database.from("activities").insert({
     organization_id: session.profile.organization_id,
-    client_id: input.client_id,
+    client_id: data.client_id,
     agent_id: session.userId,
-    type: input.type,
-    note: input.note ?? null,
-    due_at: input.due_at,
+    type: data.type,
+    note: data.note ?? null,
+    due_at: data.due_at,
     done: false,
   });
 
@@ -67,9 +73,9 @@ export async function createActivityAction(input: {
 
 export async function toggleActivityDoneAction(id: string, done: boolean) {
   await requireSession();
-  const supabase = createClient();
+  const insforge = await createClient();
 
-  const { error } = await supabase.from("activities").update({ done }).eq("id", id);
+  const { error } = await insforge.database.from("activities").update({ done }).eq("id", id);
   if (error) return { error: error.message };
 
   revalidatePath("/dashboard/relances");
@@ -79,9 +85,9 @@ export async function toggleActivityDoneAction(id: string, done: boolean) {
 
 export async function deleteActivityAction(id: string) {
   await requireSession();
-  const supabase = createClient();
+  const insforge = await createClient();
 
-  const { error } = await supabase.from("activities").delete().eq("id", id);
+  const { error } = await insforge.database.from("activities").delete().eq("id", id);
   if (error) return { error: error.message };
 
   revalidatePath("/dashboard/relances");

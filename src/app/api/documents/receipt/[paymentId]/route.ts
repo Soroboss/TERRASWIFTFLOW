@@ -1,6 +1,6 @@
 import { amountToWordsFCFA } from "@/lib/amount-words";
 import { formatDate } from "@/lib/format";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/insforge/server";
 import { ReceiptPDFDocument } from "@/lib/pdf/documents";
 import { PAYMENT_METHOD_LABELS } from "@/types/entities";
 import type { PaymentMethod } from "@/types/database";
@@ -9,23 +9,23 @@ import { NextResponse } from "next/server";
 
 export async function GET(
   _request: Request,
-  { params }: { params: { paymentId: string } }
+  { params }: { params: Promise<{ paymentId: string }> }
 ) {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { paymentId } = await params;
+  const insforge = await createClient();
+  const { data: userData } = await insforge.auth.getCurrentUser();
+  const user = userData?.user;
 
   if (!user) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
 
-  const { data: payment } = await supabase
+  const { data: payment } = await insforge.database
     .from("payments")
     .select(
       "*, deal:deals(client:clients(full_name), property:properties(title)), organization:organizations(name)"
     )
-    .eq("id", params.paymentId)
+    .eq("id", paymentId)
     .single();
 
   if (!payment) {

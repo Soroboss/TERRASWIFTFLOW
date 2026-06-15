@@ -11,13 +11,14 @@ import { getDeal, getDealFinancials } from "@/lib/actions/deals";
 import { formatFCFA, formatDate, formatPhoneCI } from "@/lib/format";
 
 interface PageProps {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 export default async function DealDetailPage({ params }: PageProps) {
+  const { id } = await params;
   const [deal, financials] = await Promise.all([
-    getDeal(params.id),
-    getDealFinancials(params.id),
+    getDeal(id),
+    getDealFinancials(id),
   ]);
 
   if (!deal || !financials) notFound();

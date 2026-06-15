@@ -1,0 +1,33 @@
+[auth]
+require_email_verification = true
+verify_email_method = "code"
+reset_password_method = "code"
+disable_signup = false
+allowed_redirect_urls = [
+  "http://localhost:3000",
+  "http://localhost:3000/auth/callback",
+  "http://localhost:3000/api/auth/callback",
+  "https://terraswiftflow.vercel.app",
+  "https://terraswiftflow.vercel.app/auth/callback",
+  "https://terraswiftflow.vercel.app/api/auth/callback",
+]
+
+[auth.password]
+min_length = 8
+require_lowercase = true
+require_number = false
+require_uppercase = false
+require_special_char = false
+
+# Renseignez vos identifiants SMTP puis : npx @insforge/cli config apply --auto-approve
+[auth.smtp]
+enabled = false
+host = "smtp.resend.com"
+port = 587
+username = "resend"
+sender_email = "noreply@votre-domaine.com"
+sender_name = "TerraSwiftFlow"
+min_interval_seconds = 60
+
+[storage]
+max_file_size_mb = 5

@@ -1,38 +1,38 @@
 import { formatDate } from "@/lib/format";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/insforge/server";
 import { ContractPDFDocument } from "@/lib/pdf/documents";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { NextResponse } from "next/server";
 
 export async function GET(
   _request: Request,
-  { params }: { params: { dealId: string } }
+  { params }: { params: Promise<{ dealId: string }> }
 ) {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { dealId } = await params;
+  const insforge = await createClient();
+  const { data: userData } = await insforge.auth.getCurrentUser();
+  const user = userData?.user;
 
   if (!user) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
 
-  const { data: deal } = await supabase
+  const { data: deal } = await insforge.database
     .from("deals")
     .select(
       "*, client:clients(full_name, phone), property:properties(title, reference), organization:organizations(name)"
     )
-    .eq("id", params.dealId)
+    .eq("id", dealId)
     .single();
 
   if (!deal) {
     return NextResponse.json({ error: "Vente introuvable" }, { status: 404 });
   }
 
-  const { data: schedules } = await supabase
+  const { data: schedules } = await insforge.database
     .from("payment_schedules")
     .select("*")
-    .eq("deal_id", params.dealId)
+    .eq("deal_id", dealId)
     .order("due_date");
 
   const client = deal.client as { full_name: string; phone: string } | null;
@@ -59,7 +59,7 @@ export async function GET(
   return new NextResponse(new Uint8Array(buffer), {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `inline; filename="contrat-${params.dealId.slice(0, 8)}.pdf"`,
+      "Content-Disposition": `inline; filename="contrat-${dealId.slice(0, 8)}.pdf"`,
     },
   });
 }

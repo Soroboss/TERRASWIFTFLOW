@@ -8,11 +8,12 @@ import { formatDate, formatPhoneCI } from "@/lib/format";
 import { CLIENT_SOURCE_LABELS, type ClientSource } from "@/types/entities";
 
 interface PageProps {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 export default async function ClientDetailPage({ params }: PageProps) {
-  const client = await getClient(params.id);
+  const { id } = await params;
+  const client = await getClient(id);
   if (!client) notFound();
 
   return (
@@ -23,7 +24,7 @@ export default async function ClientDetailPage({ params }: PageProps) {
           <p className="text-muted-foreground">{formatPhoneCI(client.phone)}</p>
         </div>
         <Button variant="outline" asChild>
-          <Link href={`/dashboard/clients/${params.id}/modifier`}>
+          <Link href={`/dashboard/clients/${id}/modifier`}>
             <Pencil className="h-4 w-4" />Modifier
           </Link>
         </Button>

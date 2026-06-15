@@ -2,7 +2,9 @@
 
 import { requireSession } from "@/lib/auth";
 import { normalizeProperties, normalizeProperty } from "@/lib/properties";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/insforge/server";
+import { parseInput } from "@/lib/validations/parse";
+import { propertySchema } from "@/lib/validations/schemas";
 import type { Property, PropertyStatus, PropertyType } from "@/types/database";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -26,8 +28,8 @@ export interface PropertyInput {
 }
 
 export async function getProperties(): Promise<Property[]> {
-  const supabase = createClient();
-  const { data, error } = await supabase
+  const insforge = await createClient();
+  const { data, error } = await insforge.database
     .from("properties")
     .select("*")
     .order("created_at", { ascending: false });
@@ -37,8 +39,8 @@ export async function getProperties(): Promise<Property[]> {
 }
 
 export async function getProperty(id: string): Promise<Property | null> {
-  const supabase = createClient();
-  const { data, error } = await supabase
+  const insforge = await createClient();
+  const { data, error } = await insforge.database
     .from("properties")
     .select("*")
     .eq("id", id)
@@ -49,27 +51,31 @@ export async function getProperty(id: string): Promise<Property | null> {
 }
 
 export async function createPropertyAction(input: PropertyInput) {
-  const session = await requireSession();
-  const supabase = createClient();
+  const parsed = parseInput(propertySchema, input);
+  if ("error" in parsed) return { error: parsed.error };
 
-  const { error } = await supabase.from("properties").insert({
+  const session = await requireSession();
+  const insforge = await createClient();
+  const data = parsed.data;
+
+  const { error } = await insforge.database.from("properties").insert({
     organization_id: session.profile.organization_id,
     created_by: session.userId,
-    type: input.type,
-    title: input.title,
-    reference: input.reference,
-    status: input.status,
-    price_total: input.price_total,
-    surface_m2: input.surface_m2 ?? null,
-    price_per_m2: input.price_per_m2 ?? null,
-    location_label: input.location_label ?? null,
-    lat: input.lat ?? null,
-    lng: input.lng ?? null,
-    lot_number: input.lot_number ?? null,
-    masterplan_id: input.masterplan_id ?? null,
-    rooms: input.rooms ?? null,
-    construction_status: input.construction_status ?? null,
-    photos: input.photos ?? [],
+    type: data.type,
+    title: data.title,
+    reference: data.reference,
+    status: data.status,
+    price_total: data.price_total,
+    surface_m2: data.surface_m2 ?? null,
+    price_per_m2: data.price_per_m2 ?? null,
+    location_label: data.location_label ?? null,
+    lat: data.lat ?? null,
+    lng: data.lng ?? null,
+    lot_number: data.lot_number ?? null,
+    masterplan_id: data.masterplan_id ?? null,
+    rooms: data.rooms ?? null,
+    construction_status: data.construction_status ?? null,
+    photos: data.photos ?? [],
   });
 
   if (error) return { error: error.message };
@@ -79,27 +85,31 @@ export async function createPropertyAction(input: PropertyInput) {
 }
 
 export async function updatePropertyAction(id: string, input: PropertyInput) {
-  await requireSession();
-  const supabase = createClient();
+  const parsed = parseInput(propertySchema, input);
+  if ("error" in parsed) return { error: parsed.error };
 
-  const { error } = await supabase
+  await requireSession();
+  const insforge = await createClient();
+  const data = parsed.data;
+
+  const { error } = await insforge.database
     .from("properties")
     .update({
-      type: input.type,
-      title: input.title,
-      reference: input.reference,
-      status: input.status,
-      price_total: input.price_total,
-      surface_m2: input.surface_m2 ?? null,
-      price_per_m2: input.price_per_m2 ?? null,
-      location_label: input.location_label ?? null,
-      lat: input.lat ?? null,
-      lng: input.lng ?? null,
-      lot_number: input.lot_number ?? null,
-      masterplan_id: input.masterplan_id ?? null,
-      rooms: input.rooms ?? null,
-      construction_status: input.construction_status ?? null,
-      photos: input.photos ?? [],
+      type: data.type,
+      title: data.title,
+      reference: data.reference,
+      status: data.status,
+      price_total: data.price_total,
+      surface_m2: data.surface_m2 ?? null,
+      price_per_m2: data.price_per_m2 ?? null,
+      location_label: data.location_label ?? null,
+      lat: data.lat ?? null,
+      lng: data.lng ?? null,
+      lot_number: data.lot_number ?? null,
+      masterplan_id: data.masterplan_id ?? null,
+      rooms: data.rooms ?? null,
+      construction_status: data.construction_status ?? null,
+      photos: data.photos ?? [],
     })
     .eq("id", id);
 
@@ -112,9 +122,9 @@ export async function updatePropertyAction(id: string, input: PropertyInput) {
 
 export async function deletePropertyAction(id: string) {
   await requireSession();
-  const supabase = createClient();
+  const insforge = await createClient();
 
-  const { error } = await supabase.from("properties").delete().eq("id", id);
+  const { error } = await insforge.database.from("properties").delete().eq("id", id);
   if (error) return { error: error.message };
 
   revalidatePath("/dashboard/biens");
@@ -123,7 +133,7 @@ export async function deletePropertyAction(id: string) {
 
 export async function uploadPropertyPhotoAction(formData: FormData) {
   const session = await requireSession();
-  const supabase = createClient();
+  const insforge = await createClient();
   const file = formData.get("file") as File | null;
   const propertyId = formData.get("propertyId") as string | null;
 
@@ -131,25 +141,32 @@ export async function uploadPropertyPhotoAction(formData: FormData) {
     return { error: "Fichier ou bien manquant." };
   }
 
+  const maxBytes = 5 * 1024 * 1024;
+  if (file.size > maxBytes) {
+    return { error: "Fichier trop volumineux (max 5 Mo)." };
+  }
+
+  const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+  if (!allowedTypes.includes(file.type)) {
+    return { error: "Format non autorisé (JPEG, PNG, WebP, GIF)." };
+  }
+
   const ext = file.name.split(".").pop() ?? "jpg";
   const path = `${session.profile.organization_id}/${propertyId}/${Date.now()}.${ext}`;
 
-  const { error: uploadError } = await supabase.storage
+  const { data: uploadData, error: uploadError } = await insforge.storage
     .from("property-photos")
-    .upload(path, file, { upsert: false });
+    .upload(path, file);
 
   if (uploadError) return { error: uploadError.message };
-
-  const { data: urlData } = supabase.storage
-    .from("property-photos")
-    .getPublicUrl(path);
+  if (!uploadData?.url) return { error: "URL de photo introuvable." };
 
   const property = await getProperty(propertyId);
   if (!property) return { error: "Bien introuvable." };
 
-  const photos = [...property.photos, urlData.publicUrl];
+  const photos = [...property.photos, uploadData.url];
 
-  const { error: updateError } = await supabase
+  const { error: updateError } = await insforge.database
     .from("properties")
     .update({ photos })
     .eq("id", propertyId);
@@ -157,5 +174,5 @@ export async function uploadPropertyPhotoAction(formData: FormData) {
   if (updateError) return { error: updateError.message };
 
   revalidatePath(`/dashboard/biens/${propertyId}`);
-  return { url: urlData.publicUrl };
+  return { url: uploadData.url };
 }

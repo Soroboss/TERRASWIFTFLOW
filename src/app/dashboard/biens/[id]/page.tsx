@@ -10,11 +10,11 @@ import { getProperty } from "@/lib/actions/properties";
 import { formatFCFA, formatDate } from "@/lib/format";
 
 interface PageProps {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 export default async function BienDetailPage({ params }: PageProps) {
-  const { id } = params;
+  const { id } = await params;
   const property = await getProperty(id);
   if (!property) notFound();
 

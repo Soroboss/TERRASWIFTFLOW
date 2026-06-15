@@ -4,13 +4,14 @@ import { requireSession } from "@/lib/auth";
 import { getClient, getOrganizationAgents } from "@/lib/actions/clients";
 
 interface PageProps {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 export default async function ModifierClientPage({ params }: PageProps) {
+  const { id } = await params;
   const session = await requireSession();
   const [client, agents] = await Promise.all([
-    getClient(params.id),
+    getClient(id),
     getOrganizationAgents(),
   ]);
   if (!client) notFound();

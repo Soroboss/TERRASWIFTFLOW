@@ -1,8 +1,15 @@
 import Link from "next/link";
 import { RegisterForm } from "@/components/auth/register-form";
 import { SetupBanner } from "@/components/setup/setup-banner";
+import { TRIAL_DAYS } from "@/lib/pricing";
 
-export default function RegisterPage() {
+interface RegisterPageProps {
+  searchParams: Promise<{ plan?: string }>;
+}
+
+export default async function RegisterPage({ searchParams }: RegisterPageProps) {
+  const { plan } = await searchParams;
+
   return (
     <div className="flex min-h-screen flex-col bg-muted/30">
       <SetupBanner />
@@ -12,10 +19,10 @@ export default function RegisterPage() {
             TerraSwiftFlow
           </Link>
           <p className="mt-1 text-sm text-muted-foreground">
-            14 jours d&apos;essai gratuit — sans carte bancaire
+            {TRIAL_DAYS} jours d&apos;essai gratuit — Starter ou Pro, sans carte bancaire
           </p>
         </div>
-        <RegisterForm />
+        <RegisterForm defaultPlan={plan === "pro" ? "pro" : "starter"} />
       </div>
     </div>
   );

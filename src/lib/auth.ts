@@ -1,6 +1,6 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/insforge/server";
 import type { Organization, Profile } from "@/types/database";
-import { isSupabaseConfigured } from "@/lib/env";
+import { isInsforgeConfigured } from "@/lib/env";
 import { redirect } from "next/navigation";
 
 export interface SessionContext {
@@ -10,17 +10,16 @@ export interface SessionContext {
 }
 
 export async function getSessionContext(): Promise<SessionContext | null> {
-  if (!isSupabaseConfigured()) return null;
+  if (!isInsforgeConfigured()) return null;
 
   try {
-    const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const insforge = await createClient();
+    const { data: userData } = await insforge.auth.getCurrentUser();
+    const user = userData?.user;
 
     if (!user) return null;
 
-    const { data: profile } = await supabase
+    const { data: profile } = await insforge.database
       .from("profiles")
       .select("*")
       .eq("id", user.id)
@@ -28,7 +27,7 @@ export async function getSessionContext(): Promise<SessionContext | null> {
 
     if (!profile) return null;
 
-    const { data: organization } = await supabase
+    const { data: organization } = await insforge.database
       .from("organizations")
       .select("*")
       .eq("id", profile.organization_id)
