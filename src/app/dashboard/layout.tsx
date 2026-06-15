@@ -19,6 +19,7 @@ export default async function DashboardLayout({
       <DashboardNav
         organizationName={session.organization.name}
         userName={session.profile.full_name}
+        canManageTeam={session.profile.role === "owner" || session.profile.role === "manager"}
       />
       <main className="flex-1 pt-14 lg:pt-0">
         <div className="mx-auto max-w-6xl p-4 sm:p-6">

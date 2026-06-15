@@ -1,4 +1,5 @@
 import { createServiceClient } from "@/lib/insforge/admin";
+import { isPlatformStaffUser } from "@/lib/auth/insforge-admin-users";
 import { normalizePhoneCI } from "@/lib/format";
 import { TRIAL_DAYS } from "@/lib/pricing";
 import type { Plan } from "@/types/database";
@@ -49,6 +50,13 @@ export async function bootstrapOrganizationForUser(
   userId: string,
   input: Pick<PendingRegistration, "organizationName" | "fullName" | "phone" | "plan">
 ): Promise<{ error?: string }> {
+  if (await isPlatformStaffUser(userId)) {
+    return {
+      error:
+        "Ce compte est réservé à l'équipe TerraSwiftFlow et ne peut pas créer d'organisation cliente.",
+    };
+  }
+
   const service = createServiceClient();
 
   const { data: existingProfile } = await service.database

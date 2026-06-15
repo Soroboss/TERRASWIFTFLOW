@@ -10,6 +10,7 @@ import {
   LogOut,
   Map,
   Menu,
+  UserCog,
   Users,
   Wallet,
   X,
@@ -32,9 +33,12 @@ const NAV_ITEMS = [
 interface DashboardNavProps {
   organizationName: string;
   userName: string;
+  canManageTeam?: boolean;
 }
 
-export function DashboardNav({ organizationName, userName }: DashboardNavProps) {
+const TEAM_NAV_ITEM = { href: "/dashboard/equipe", label: "Équipe", icon: UserCog };
+
+export function DashboardNav({ organizationName, userName, canManageTeam }: DashboardNavProps) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -51,7 +55,7 @@ export function DashboardNav({ organizationName, userName }: DashboardNavProps) 
       </div>
 
       <nav className="flex flex-1 flex-col gap-1">
-        {NAV_ITEMS.map(({ href, label, icon: Icon }) => (
+        {[...NAV_ITEMS, ...(canManageTeam ? [TEAM_NAV_ITEM] : [])].map(({ href, label, icon: Icon }) => (
           <Link
             key={href}
             href={href}

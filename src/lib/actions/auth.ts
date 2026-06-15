@@ -26,6 +26,7 @@ import {
   consumePendingRegistrationCookie,
   setPendingRegistrationCookie,
 } from "@/lib/auth/pending-registration";
+import { isPlatformStaffEmail, isPlatformStaffUser } from "@/lib/auth/insforge-admin-users";
 
 export interface RegisterInput {
   email: string;
@@ -69,6 +70,14 @@ export async function registerAction(input: RegisterInput) {
   }
 
   const data = parsed.data;
+
+  if (await isPlatformStaffEmail(data.email)) {
+    return {
+      error:
+        "Cet e-mail est réservé à l'équipe TerraSwiftFlow. Utilisez la page admin plateforme pour gérer les comptes staff.",
+    };
+  }
+
   const insforge = await createClient();
 
   const { data: authData, error: authError } = await insforge.auth.signUp({
@@ -239,7 +248,7 @@ export async function loginAction(email: string, password: string) {
     redirect("/platform");
   }
 
-  redirect("/setup");
+  redirect("/compte-en-attente");
 }
 
 export async function logoutAction() {

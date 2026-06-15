@@ -3,7 +3,7 @@ import { isInsforgeConfigured } from "@/lib/env";
 import { getClientIp } from "@/lib/security/client-ip";
 import { AUTH_RATE_LIMIT, checkRateLimit } from "@/lib/security/rate-limit";
 
-const PUBLIC_PREFIXES = ["/login", "/register", "/auth", "/paywall", "/setup"];
+const PUBLIC_PREFIXES = ["/login", "/register", "/auth", "/paywall", "/setup", "/compte-en-attente"];
 const ACCESS_COOKIE = "insforge_access_token";
 
 function isPublicPath(pathname: string): boolean {
