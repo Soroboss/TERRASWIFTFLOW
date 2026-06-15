@@ -131,7 +131,12 @@ export async function addOrganizationTeamMemberAction(
 
 export async function updateOrganizationTeamMemberAction(
   userId: string,
-  input: { role?: UserRole; active?: boolean }
+  input: {
+    role?: UserRole;
+    active?: boolean;
+    full_name?: string;
+    phone?: string | null;
+  }
 ) {
   const session = await requireSession();
   if (!canManageOrganizationTeam(session.profile.role)) {
@@ -161,9 +166,72 @@ export async function updateOrganizationTeamMemberAction(
     return { error: "Le propriétaire du compte ne peut pas être rétrogradé ici." };
   }
 
-  const { error } = await service.database.from("profiles").update(input).eq("id", userId);
+  const payload: {
+    role?: UserRole;
+    active?: boolean;
+    full_name?: string;
+    phone?: string | null;
+  } = {};
+
+  if (input.role) payload.role = input.role;
+  if (input.active !== undefined) payload.active = input.active;
+  if (input.full_name?.trim()) payload.full_name = input.full_name.trim();
+  if (input.phone !== undefined) {
+    payload.phone = input.phone ? normalizePhoneCI(input.phone) : null;
+  }
+
+  if (Object.keys(payload).length === 0) {
+    return { error: "Aucune modification à enregistrer." };
+  }
+
+  const { error } = await service.database.from("profiles").update(payload).eq("id", userId);
 
   if (error) return { error: "Mise à jour impossible." };
+
+  revalidatePath("/dashboard/equipe");
+  return { success: true };
+}
+
+export async function removeOrganizationTeamMemberAction(userId: string) {
+  const session = await requireSession();
+  if (!canManageOrganizationTeam(session.profile.role)) {
+    return { error: "Droits insuffisants." };
+  }
+
+  if (userId === session.userId) {
+    return { error: "Vous ne pouvez pas retirer votre propre accès." };
+  }
+
+  const service = createServiceClient();
+  const { data: member } = await service.database
+    .from("profiles")
+    .select("id, role, organization_id")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (!member || member.organization_id !== session.profile.organization_id) {
+    return { error: "Collaborateur introuvable." };
+  }
+
+  if (member.role === "owner") {
+    return { error: "Le propriétaire du compte ne peut pas être retiré." };
+  }
+
+  const { error: deleteError } = await service.database.from("profiles").delete().eq("id", userId);
+
+  if (deleteError) {
+    const { error: deactivateError } = await service.database
+      .from("profiles")
+      .update({ active: false })
+      .eq("id", userId);
+
+    if (deactivateError) {
+      return {
+        error:
+          "Impossible de retirer ce collaborateur (données liées). Désactivez-le via Modifier.",
+      };
+    }
+  }
 
   revalidatePath("/dashboard/equipe");
   return { success: true };

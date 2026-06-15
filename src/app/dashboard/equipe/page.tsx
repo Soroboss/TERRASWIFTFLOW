@@ -1,16 +1,9 @@
 import { getOrganizationTeam } from "@/lib/actions/team";
 import { requireSession } from "@/lib/auth";
 import { AddOrganizationMemberForm } from "@/components/dashboard/add-organization-member-form";
-import { Badge } from "@/components/ui/badge";
+import { OrganizationTeamMemberRow } from "@/components/dashboard/organization-team-member-row";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { formatDate } from "@/lib/format";
 import { redirect } from "next/navigation";
-
-const ROLE_LABELS = {
-  owner: "Propriétaire",
-  manager: "Manager",
-  agent: "Agent",
-} as const;
 
 export default async function OrganizationTeamPage() {
   const session = await requireSession();
@@ -53,24 +46,11 @@ export default async function OrganizationTeamPage() {
           ) : (
             <ul className="divide-y">
               {team.map((member) => (
-                <li
+                <OrganizationTeamMemberRow
                   key={member.id}
-                  className="flex flex-wrap items-center justify-between gap-2 py-3"
-                >
-                  <div>
-                    <p className="font-medium">{member.full_name}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {member.phone ?? "Téléphone non renseigné"}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="secondary">{ROLE_LABELS[member.role]}</Badge>
-                    {!member.active && <Badge variant="outline">Inactif</Badge>}
-                    <span className="text-xs text-muted-foreground">
-                      depuis {formatDate(member.created_at)}
-                    </span>
-                  </div>
-                </li>
+                  member={member}
+                  currentUserId={session.userId}
+                />
               ))}
             </ul>
           )}

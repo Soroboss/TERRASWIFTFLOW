@@ -2,10 +2,8 @@ import { getPlatformTeam } from "@/lib/actions/platform/team";
 import { canManageTeam, requirePlatformSession } from "@/lib/platform/auth";
 import { AddTeamMemberForm } from "@/components/platform/add-team-member-form";
 import { PlatformAutonomyNotice } from "@/components/platform/platform-autonomy-notice";
-import { Badge } from "@/components/ui/badge";
+import { PlatformTeamMemberRow } from "@/components/platform/platform-team-member-row";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { PLATFORM_ROLE_LABELS } from "@/types/platform";
-import { formatDate } from "@/lib/format";
 
 export default async function PlatformTeamPage() {
   const session = await requirePlatformSession();
@@ -36,19 +34,12 @@ export default async function PlatformTeamPage() {
           ) : (
             <ul className="divide-y">
               {team.map((member) => (
-                <li key={member.id} className="flex flex-wrap items-center justify-between gap-2 py-3">
-                  <div>
-                    <p className="font-medium">{member.full_name}</p>
-                    <p className="text-sm text-muted-foreground">{member.email}</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="secondary">{PLATFORM_ROLE_LABELS[member.role]}</Badge>
-                    {!member.active && <Badge variant="outline">Inactif</Badge>}
-                    <span className="text-xs text-muted-foreground">
-                      depuis {formatDate(member.created_at)}
-                    </span>
-                  </div>
-                </li>
+                <PlatformTeamMemberRow
+                  key={member.id}
+                  member={member}
+                  currentUserId={session.userId}
+                  canManage={canManage}
+                />
               ))}
             </ul>
           )}

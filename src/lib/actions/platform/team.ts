@@ -103,7 +103,7 @@ export async function addPlatformTeamMemberAction(
 
 export async function updatePlatformTeamMemberAction(
   userId: string,
-  input: { role?: PlatformRole; active?: boolean }
+  input: { role?: PlatformRole; active?: boolean; full_name?: string }
 ) {
   const session = await requirePlatformSession();
   if (!canManageTeam(session.platformUser.role)) {
@@ -114,12 +114,42 @@ export async function updatePlatformTeamMemberAction(
     return { error: "Vous ne pouvez pas vous désactiver vous-même." };
   }
 
+  const payload: { role?: PlatformRole; active?: boolean; full_name?: string } = {};
+  if (input.role) payload.role = input.role;
+  if (input.active !== undefined) payload.active = input.active;
+  if (input.full_name?.trim()) payload.full_name = input.full_name.trim();
+
+  if (Object.keys(payload).length === 0) {
+    return { error: "Aucune modification à enregistrer." };
+  }
+
   const service = createServiceClient();
-  const { error } = await service.database.from("platform_users").update(input).eq("id", userId);
+  const { error } = await service.database.from("platform_users").update(payload).eq("id", userId);
 
   if (error) return { error: "Mise à jour impossible." };
 
-  await logPlatformAction(session.userId, "platform.team_update", "platform_user", userId, input);
+  await logPlatformAction(session.userId, "platform.team_update", "platform_user", userId, payload);
+
+  revalidatePath("/platform/equipe");
+  return { success: true };
+}
+
+export async function removePlatformTeamMemberAction(userId: string) {
+  const session = await requirePlatformSession();
+  if (!canManageTeam(session.platformUser.role)) {
+    return { error: "Droits insuffisants." };
+  }
+
+  if (userId === session.userId) {
+    return { error: "Vous ne pouvez pas retirer votre propre accès admin." };
+  }
+
+  const service = createServiceClient();
+  const { error } = await service.database.from("platform_users").delete().eq("id", userId);
+
+  if (error) return { error: "Suppression impossible." };
+
+  await logPlatformAction(session.userId, "platform.team_remove", "platform_user", userId, {});
 
   revalidatePath("/platform/equipe");
   return { success: true };
