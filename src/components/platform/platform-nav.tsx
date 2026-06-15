@@ -21,7 +21,7 @@ import type { PlatformRole } from "@/types/platform";
 
 const NAV_ITEMS = [
   { href: "/platform", label: "Vue d'ensemble", icon: LayoutDashboard },
-  { href: "/platform/tenants", label: "Tenants", icon: Building2 },
+  { href: "/platform/tenants", label: "Organisations", icon: Building2 },
   { href: "/platform/abonnements", label: "Abonnements", icon: CreditCard },
   { href: "/platform/equipe", label: "Équipe plateforme", icon: Users },
   { href: "/platform/parametres", label: "Paramètres", icon: Settings },
@@ -30,10 +30,9 @@ const NAV_ITEMS = [
 interface PlatformNavProps {
   userName: string;
   role: PlatformRole;
-  hasTenantAccess?: boolean;
 }
 
-export function PlatformNav({ userName, role, hasTenantAccess }: PlatformNavProps) {
+export function PlatformNav({ userName, role }: PlatformNavProps) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -66,12 +65,7 @@ export function PlatformNav({ userName, role, hasTenantAccess }: PlatformNavProp
         ))}
       </nav>
 
-      <div className="mt-auto space-y-2 border-t pt-4">
-        {hasTenantAccess && (
-          <Button variant="outline" className="w-full justify-start" asChild>
-            <Link href="/dashboard">← Espace tenant</Link>
-          </Button>
-        )}
+      <div className="mt-auto border-t pt-4">
         <p className="truncate px-3 text-xs text-muted-foreground">
           {userName} · {role}
         </p>

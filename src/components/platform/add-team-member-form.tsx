@@ -70,8 +70,9 @@ export function AddTeamMemberForm() {
         {loading ? "Ajout…" : "Ajouter à l'équipe"}
       </Button>
       <p className="text-xs text-muted-foreground">
-        La personne doit posséder un compte TerraSwiftFlow (auth InsForge) avant d&apos;être
-        ajoutée.
+        Compte staff dédié uniquement — sans rattachement à une organisation cliente. Les
+        collaborateurs des entreprises inscrites sont gérés par chaque organisation dans son
+        propre espace.
       </p>
     </div>
   );

@@ -1,11 +1,12 @@
 import { notFound } from "next/navigation";
-import { getTenantOverview } from "@/lib/actions/platform/stats";
+import { getTenantBillingRecord } from "@/lib/actions/platform/stats";
 import { canManageBilling, requirePlatformSession } from "@/lib/platform/auth";
+import { PlatformAutonomyNotice } from "@/components/platform/platform-autonomy-notice";
 import { TenantSubscriptionPanel } from "@/components/platform/tenant-subscription-panel";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SUBSCRIPTION_STATUS_LABELS } from "@/types/platform";
-import { formatDate, formatFCFA } from "@/lib/format";
+import { formatDate } from "@/lib/format";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -14,12 +15,14 @@ interface PageProps {
 export default async function PlatformTenantDetailPage({ params }: PageProps) {
   const { id } = await params;
   const session = await requirePlatformSession();
-  const tenant = await getTenantOverview(id);
+  const tenant = await getTenantBillingRecord(id);
 
   if (!tenant) notFound();
 
   return (
     <div className="space-y-6">
+      <PlatformAutonomyNotice variant="tenants" />
+
       <div>
         <h1 className="text-2xl font-bold">{tenant.name}</h1>
         <div className="mt-2 flex flex-wrap gap-2">
@@ -31,30 +34,10 @@ export default async function PlatformTenantDetailPage({ params }: PageProps) {
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          { label: "Utilisateurs actifs", value: tenant.active_users },
-          { label: "Biens", value: tenant.properties_count },
-          { label: "Clients", value: tenant.clients_count },
-          { label: "Ventes en cours", value: tenant.active_deals },
-        ].map((item) => (
-          <Card key={item.label}>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                {item.label}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold">{item.value}</p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Informations</CardTitle>
+            <CardTitle>Inscription & facturation</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
             <p>
@@ -67,20 +50,24 @@ export default async function PlatformTenantDetailPage({ params }: PageProps) {
                 {formatDate(tenant.trial_ends_at)}
               </p>
             )}
-            <p>
-              <span className="text-muted-foreground">Encaissements 30j :</span>{" "}
-              {formatFCFA(Number(tenant.revenue_30d))}
-            </p>
-            <p>
-              <span className="text-muted-foreground">Ventes soldées :</span>{" "}
-              {tenant.closed_deals}
-            </p>
+            {tenant.billing_email && (
+              <p>
+                <span className="text-muted-foreground">E-mail facturation :</span>{" "}
+                {tenant.billing_email}
+              </p>
+            )}
+            {tenant.suspended_at && (
+              <p>
+                <span className="text-muted-foreground">Suspendu le :</span>{" "}
+                {formatDate(tenant.suspended_at)}
+              </p>
+            )}
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle>Abonnement & facturation</CardTitle>
+            <CardTitle>Abonnement</CardTitle>
           </CardHeader>
           <CardContent>
             <TenantSubscriptionPanel

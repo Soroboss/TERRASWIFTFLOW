@@ -1,5 +1,7 @@
 "use server";
 
+/** Actions plateforme limitées à la facturation / abonnement — pas d'accès aux données métier tenant. */
+
 import { createServiceClient } from "@/lib/insforge/admin";
 import { logPlatformAction } from "@/lib/actions/platform/audit";
 import { canManageBilling, requirePlatformSession } from "@/lib/platform/auth";

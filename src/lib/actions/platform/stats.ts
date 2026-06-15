@@ -7,7 +7,7 @@ import type {
   GrowthPoint,
   PlatformKPIs,
   PlatformSettings,
-  TenantOverview,
+  TenantBillingRecord,
 } from "@/types/platform";
 import type { Plan } from "@/types/database";
 import { format } from "date-fns";
@@ -41,35 +41,38 @@ export async function getPlatformSettings(): Promise<PlatformSettings> {
   return loadSettings();
 }
 
-export async function getTenantOverviews(): Promise<TenantOverview[]> {
+const TENANT_BILLING_COLUMNS =
+  "id, name, plan, subscription_status, trial_ends_at, billing_email, suspended_at, notes, created_at";
+
+export async function getTenantBillingRecords(): Promise<TenantBillingRecord[]> {
   await requirePlatformSession();
   const service = createServiceClient();
 
   const { data, error } = await service.database
-    .from("platform_tenant_overview")
-    .select("*")
+    .from("organizations")
+    .select(TENANT_BILLING_COLUMNS)
     .order("created_at", { ascending: false });
 
   if (error) return [];
-  return (data ?? []) as TenantOverview[];
+  return (data ?? []) as TenantBillingRecord[];
 }
 
-export async function getTenantOverview(id: string): Promise<TenantOverview | null> {
+export async function getTenantBillingRecord(id: string): Promise<TenantBillingRecord | null> {
   await requirePlatformSession();
   const service = createServiceClient();
 
   const { data } = await service.database
-    .from("platform_tenant_overview")
-    .select("*")
+    .from("organizations")
+    .select(TENANT_BILLING_COLUMNS)
     .eq("id", id)
     .maybeSingle();
 
-  return (data as TenantOverview | null) ?? null;
+  return (data as TenantBillingRecord | null) ?? null;
 }
 
 export async function getPlatformKPIs(): Promise<PlatformKPIs> {
   await requirePlatformSession();
-  const tenants = await getTenantOverviews();
+  const tenants = await getTenantBillingRecords();
   const settings = await loadSettings();
   const now = Date.now();
   const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000;
@@ -147,7 +150,7 @@ export async function getGrowthSeries(weeks = 12): Promise<GrowthPoint[]> {
 }
 
 export async function getPlanDistribution(): Promise<{ plan: Plan; count: number }[]> {
-  const tenants = await getTenantOverviews();
+  const tenants = await getTenantBillingRecords();
   const plans: Plan[] = ["starter", "pro", "business"];
   return plans.map((plan) => ({
     plan,

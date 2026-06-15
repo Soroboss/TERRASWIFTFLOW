@@ -51,11 +51,25 @@ export async function addPlatformTeamMemberAction(
   if (!authUser) {
     return {
       error:
-        "Utilisateur introuvable. La personne doit d'abord créer un compte TerraSwiftFlow (inscription ou invitation).",
+        "Compte introuvable. Créez un compte staff TerraSwiftFlow dédié (sans inscription organisation cliente).",
     };
   }
 
   const service = createServiceClient();
+
+  const { data: tenantProfile } = await service.database
+    .from("profiles")
+    .select("id")
+    .eq("id", authUser.id)
+    .maybeSingle();
+
+  if (tenantProfile) {
+    return {
+      error:
+        "Ce compte est rattaché à une organisation cliente. L'équipe plateforme utilise des comptes staff dédiés, séparés des entreprises inscrites.",
+    };
+  }
+
   const { error } = await service.database.from("platform_users").upsert(
     {
       id: authUser.id,

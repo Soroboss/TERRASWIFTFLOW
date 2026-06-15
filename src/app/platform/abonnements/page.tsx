@@ -1,13 +1,13 @@
-import { getTenantOverviews } from "@/lib/actions/platform/stats";
-import { TenantTable } from "@/components/platform/tenant-table";
+import { getTenantBillingRecords, getPlatformSettings } from "@/lib/actions/platform/stats";
+import { PlatformAutonomyNotice } from "@/components/platform/platform-autonomy-notice";
+import { TenantBillingTable } from "@/components/platform/tenant-billing-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SUBSCRIPTION_STATUS_LABELS } from "@/types/platform";
 import { formatFcfa } from "@/lib/pricing";
-import { getPlatformSettings } from "@/lib/actions/platform/stats";
 
 export default async function PlatformSubscriptionsPage() {
   const [tenants, settings] = await Promise.all([
-    getTenantOverviews(),
+    getTenantBillingRecords(),
     getPlatformSettings(),
   ]);
 
@@ -39,6 +39,8 @@ export default async function PlatformSubscriptionsPage() {
           Pipeline commercial — essais, conversions et revenus récurrents
         </p>
       </div>
+
+      <PlatformAutonomyNotice variant="tenants" />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {groups.map((g) => (
@@ -78,7 +80,7 @@ export default async function PlatformSubscriptionsPage() {
                 ({SUBSCRIPTION_STATUS_LABELS[g.key as keyof typeof SUBSCRIPTION_STATUS_LABELS]})
               </span>
             </h2>
-            <TenantTable tenants={g.items} />
+            <TenantBillingTable tenants={g.items} />
           </div>
         ) : null
       )}

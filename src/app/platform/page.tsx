@@ -3,11 +3,12 @@ import {
   getGrowthSeries,
   getPlatformKPIs,
   getPlanDistribution,
-  getTenantOverviews,
+  getTenantBillingRecords,
 } from "@/lib/actions/platform/stats";
 import { KpiCard } from "@/components/platform/kpi-card";
 import { GrowthChart } from "@/components/platform/growth-chart";
-import { TenantTable } from "@/components/platform/tenant-table";
+import { PlatformAutonomyNotice } from "@/components/platform/platform-autonomy-notice";
+import { TenantBillingTable } from "@/components/platform/tenant-billing-table";
 import { formatFCFA } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -24,7 +25,7 @@ export default async function PlatformOverviewPage() {
     getPlatformKPIs(),
     getGrowthSeries(12),
     getPlanDistribution(),
-    getTenantOverviews(),
+    getTenantBillingRecords(),
     getRecentAuditLog(8),
   ]);
 
@@ -33,13 +34,15 @@ export default async function PlatformOverviewPage() {
       <div>
         <h1 className="text-2xl font-bold">Vue d&apos;ensemble SaaS</h1>
         <p className="text-muted-foreground">
-          Suivi des inscriptions, abonnements et performance de vos tenants
+          Inscriptions, abonnements et équipe interne TerraSwiftFlow
         </p>
       </div>
 
+      <PlatformAutonomyNotice variant="general" />
+
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard
-          title="Tenants inscrits"
+          title="Organisations inscrites"
           value={String(kpis.totalTenants)}
           hint={`+${kpis.newTenants30d} sur 30 jours`}
           icon={Building2}
@@ -96,10 +99,10 @@ export default async function PlatformOverviewPage() {
 
       <div>
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Derniers tenants</h2>
+          <h2 className="text-lg font-semibold">Dernières inscriptions</h2>
           <Users className="h-5 w-5 text-muted-foreground" />
         </div>
-        <TenantTable tenants={recentTenants.slice(0, 8)} showRevenue />
+        <TenantBillingTable tenants={recentTenants.slice(0, 8)} />
       </div>
 
       <Card>

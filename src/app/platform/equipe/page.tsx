@@ -1,6 +1,7 @@
 import { getPlatformTeam } from "@/lib/actions/platform/team";
 import { canManageTeam, requirePlatformSession } from "@/lib/platform/auth";
 import { AddTeamMemberForm } from "@/components/platform/add-team-member-form";
+import { PlatformAutonomyNotice } from "@/components/platform/platform-autonomy-notice";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PLATFORM_ROLE_LABELS } from "@/types/platform";
@@ -16,9 +17,11 @@ export default async function PlatformTeamPage() {
       <div>
         <h1 className="text-2xl font-bold">Équipe plateforme</h1>
         <p className="text-muted-foreground">
-          Staff TerraSwiftFlow qui gère les tenants, abonnements et support
+          Staff interne TerraSwiftFlow — abonnements, facturation et support SaaS
         </p>
       </div>
+
+      <PlatformAutonomyNotice variant="team" />
 
       <Card>
         <CardHeader>
@@ -55,7 +58,7 @@ export default async function PlatformTeamPage() {
       {canManage && (
         <Card>
           <CardHeader>
-            <CardTitle>Ajouter un membre</CardTitle>
+            <CardTitle>Ajouter un membre staff</CardTitle>
           </CardHeader>
           <CardContent>
             <AddTeamMemberForm />

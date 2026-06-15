@@ -21,7 +21,7 @@ export interface PlatformAuditEntry {
   created_at: string;
 }
 
-export interface TenantOverview {
+export interface TenantBillingRecord {
   id: string;
   name: string;
   plan: Plan;
@@ -31,12 +31,6 @@ export interface TenantOverview {
   suspended_at: string | null;
   notes: string | null;
   created_at: string;
-  active_users: number;
-  properties_count: number;
-  clients_count: number;
-  active_deals: number;
-  closed_deals: number;
-  revenue_30d: number;
 }
 
 export interface PlatformKPIs {
