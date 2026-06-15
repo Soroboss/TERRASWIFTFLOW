@@ -53,7 +53,7 @@ export function DashboardNav({ organizationName, userName, canManageTeam }: Dash
       <div className="mb-8 px-3">
         <p className="text-lg font-bold text-primary">TerraSwiftFlow</p>
         <p className="truncate text-xs text-muted-foreground">{organizationName}</p>
-        <p className="mt-1 text-[10px] text-muted-foreground">Vente échelonnée CI</p>
+        <p className="mt-1 text-[10px] text-muted-foreground">Vente cash ou échelonnée</p>
       </div>
 
       <nav className="flex flex-1 flex-col gap-1">
