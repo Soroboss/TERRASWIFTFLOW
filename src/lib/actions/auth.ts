@@ -24,9 +24,13 @@ import type { Plan } from "@/types/database";
 import {
   bootstrapOrganizationForUser,
   consumePendingRegistrationCookie,
-  setPendingRegistrationCookie,
 } from "@/lib/auth/pending-registration";
-import { isPlatformStaffEmail, isPlatformStaffUser } from "@/lib/auth/insforge-admin-users";
+import {
+  findAuthUserByEmail,
+  isPlatformStaffEmail,
+  provisionAuthUserForInvite,
+} from "@/lib/auth/insforge-admin-users";
+import { createServiceClient } from "@/lib/insforge/admin";
 
 export interface RegisterInput {
   email: string;
@@ -78,31 +82,6 @@ export async function registerAction(input: RegisterInput) {
     };
   }
 
-  const insforge = await createClient();
-
-  const { data: authData, error: authError } = await insforge.auth.signUp({
-    email: data.email,
-    password: data.password,
-    name: data.fullName,
-    redirectTo: `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/login`,
-  });
-
-  if (authError) {
-    return { error: authError.message };
-  }
-
-  if (!authData) {
-    return { error: "Erreur lors de la création du compte." };
-  }
-
-  if (authData.accessToken) {
-    const cookieStore = await cookies();
-    setAuthCookies(cookieStore, {
-      accessToken: authData.accessToken,
-      refreshToken: authData.refreshToken,
-    });
-  }
-
   const selectedPlan = data.plan === "pro" ? "pro" : "starter";
   const pendingInput = {
     email: data.email,
@@ -112,21 +91,113 @@ export async function registerAction(input: RegisterInput) {
     plan: selectedPlan as Plan,
   };
 
-  if (authData.user?.id) {
-    const bootstrap = await bootstrapOrganizationForUser(authData.user.id, pendingInput);
-    if (bootstrap.error) return { error: bootstrap.error };
-  } else if (authData.requireEmailVerification) {
-    await setPendingRegistrationCookie(pendingInput);
-  } else {
-    return { error: "Erreur lors de la création du compte." };
+  const existingUser = await findAuthUserByEmail(data.email);
+  if (existingUser) {
+    const service = createServiceClient();
+    const { data: existingProfile } = await service.database
+      .from("profiles")
+      .select("id")
+      .eq("id", existingUser.id)
+      .maybeSingle();
+
+    if (existingProfile) {
+      return { error: "Un compte existe déjà avec cet e-mail. Connectez-vous." };
+    }
   }
 
-  if (!authData.accessToken || authData.requireEmailVerification) {
+  const provisioned = await provisionAuthUserForInvite({
+    email: data.email,
+    password: data.password,
+    fullName: data.fullName,
+  });
+
+  if (provisioned.error || !provisioned.user) {
     return {
-      needsVerification: true,
-      email: data.email,
+      error:
+        provisioned.error ??
+        "Inscription impossible. Vérifiez vos informations ou contactez le support.",
     };
   }
+
+  const insforge = await createClient();
+  const { data: signInData, error: signInError } = await insforge.auth.signInWithPassword({
+    email: data.email,
+    password: data.password,
+  });
+
+  if (signInError || !signInData?.accessToken) {
+    return {
+      error:
+        existingUser
+          ? "Un compte existe déjà avec cet e-mail. Utilisez la connexion ou réinitialisez votre mot de passe."
+          : (signInError?.message ?? "Connexion impossible après inscription."),
+    };
+  }
+
+  const cookieStore = await cookies();
+  setAuthCookies(cookieStore, {
+    accessToken: signInData.accessToken,
+    refreshToken: signInData.refreshToken,
+  });
+
+  const userId = signInData.user?.id ?? provisioned.user.id;
+  const bootstrap = await bootstrapOrganizationForUser(userId, pendingInput);
+  if (bootstrap.error) return { error: bootstrap.error };
+
+  redirect("/dashboard");
+}
+
+/** Active une inscription en attente sans code OTP (SMTP non configuré ou e-mail non reçu). */
+export async function completeRegistrationActivationAction(email: string, password: string) {
+  const limited = await assertAuthRateLimit("auth:register");
+  if (limited) return limited;
+
+  const parsed = parseInput(loginSchema, { email, password });
+  if ("error" in parsed) return { error: parsed.error };
+
+  if (!isInsforgeConfigured()) {
+    return { error: "InsForge non configuré." };
+  }
+
+  const pending = await consumePendingRegistrationCookie(parsed.data.email);
+  if (!pending) {
+    return {
+      error:
+        "Session d'inscription expirée. Recommencez l'inscription ou contactez le support.",
+    };
+  }
+
+  const provisioned = await provisionAuthUserForInvite({
+    email: parsed.data.email,
+    password: parsed.data.password,
+    fullName: pending.fullName,
+  });
+
+  if (provisioned.error || !provisioned.user) {
+    return { error: provisioned.error ?? "Activation impossible." };
+  }
+
+  const insforge = await createClient();
+  const { data: signInData, error: signInError } = await insforge.auth.signInWithPassword({
+    email: parsed.data.email,
+    password: parsed.data.password,
+  });
+
+  if (signInError || !signInData?.accessToken) {
+    return { error: signInError?.message ?? "Connexion impossible." };
+  }
+
+  const cookieStore = await cookies();
+  setAuthCookies(cookieStore, {
+    accessToken: signInData.accessToken,
+    refreshToken: signInData.refreshToken,
+  });
+
+  const bootstrap = await bootstrapOrganizationForUser(
+    signInData.user?.id ?? provisioned.user.id,
+    pending
+  );
+  if (bootstrap.error) return { error: bootstrap.error };
 
   redirect("/dashboard");
 }
@@ -195,7 +266,10 @@ export async function resendVerificationEmailAction(email: string) {
   });
 
   if (error) {
-    return { error: error.message };
+    return {
+      error:
+        "Envoi du code impossible (e-mail non configuré). Recommencez l'inscription : votre compte sera activé automatiquement.",
+    };
   }
 
   return { success: true };

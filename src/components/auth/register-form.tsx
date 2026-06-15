@@ -11,6 +11,7 @@ import {
   registerAction,
   resendVerificationEmailAction,
   verifyEmailAction,
+  completeRegistrationActivationAction,
 } from "@/lib/actions/auth";
 import { formatFcfa, getPlanById, PRICING_PLANS, type PublicPlanId } from "@/lib/pricing";
 
@@ -54,14 +55,17 @@ export function RegisterForm({ defaultPlan = "starter" }: RegisterFormProps) {
       setLoading(false);
       return;
     }
+  };
 
-    if (result && "needsVerification" in result && result.needsVerification) {
-      setStep("verify");
-      setInfo(
-        `Un code à 6 chiffres a été envoyé à ${result.email}. Saisissez-le pour activer votre compte.`
-      );
+  const handleActivateWithoutCode = async () => {
+    setError(null);
+    setLoading(true);
+
+    const result = await completeRegistrationActivationAction(email, password);
+
+    if (result?.error) {
+      setError(result.error);
       setLoading(false);
-      return;
     }
   };
 
@@ -99,7 +103,7 @@ export function RegisterForm({ defaultPlan = "starter" }: RegisterFormProps) {
         <CardHeader>
           <CardTitle>Vérification e-mail</CardTitle>
           <CardDescription>
-            Dernière étape avant d&apos;accéder à votre tableau de bord
+            Si vous avez reçu un code par e-mail, saisissez-le. Sinon, activez sans code.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -125,6 +129,16 @@ export function RegisterForm({ defaultPlan = "starter" }: RegisterFormProps) {
 
           <Button className="w-full" onClick={handleVerify} disabled={loading || otp.length < 6}>
             {loading ? "Vérification…" : "Valider et accéder au tableau de bord"}
+          </Button>
+
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            onClick={handleActivateWithoutCode}
+            disabled={loading || !password}
+          >
+            {loading ? "Activation…" : "Activer sans code e-mail"}
           </Button>
 
           <div className="flex flex-col gap-2 text-center text-sm">
@@ -159,7 +173,7 @@ export function RegisterForm({ defaultPlan = "starter" }: RegisterFormProps) {
       <CardHeader>
         <CardTitle>Créer votre compte</CardTitle>
         <CardDescription>
-          Choisissez votre formule — essai gratuit, puis abonnement mensuel en FCFA
+          Accès immédiat après inscription — aucun code e-mail requis
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
