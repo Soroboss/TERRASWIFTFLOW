@@ -1,6 +1,8 @@
 "use server";
 
 import { createClient } from "@/lib/insforge/server";
+import { getSessionContext } from "@/lib/auth";
+import { getPlatformSession } from "@/lib/platform/auth";
 import { isInsforgeConfigured } from "@/lib/env";
 import { getClientIp } from "@/lib/security/client-ip";
 import {
@@ -190,7 +192,7 @@ export async function resendVerificationEmailAction(email: string) {
   return { success: true };
 }
 
-export async function loginAction(email: string, password: string) {
+export async function loginAction(email: string, password: string, nextPath?: string) {
   const limited = await assertAuthRateLimit("auth:login");
   if (limited) return limited;
 
@@ -225,7 +227,22 @@ export async function loginAction(email: string, password: string) {
     refreshToken: data.refreshToken,
   });
 
-  redirect("/dashboard");
+  const [tenantSession, platformSession] = await Promise.all([
+    getSessionContext(),
+    getPlatformSession(),
+  ]);
+
+  if (nextPath?.startsWith("/platform") && platformSession) {
+    redirect(nextPath);
+  }
+  if (tenantSession) {
+    redirect("/dashboard");
+  }
+  if (platformSession) {
+    redirect("/platform");
+  }
+
+  redirect("/setup");
 }
 
 export async function logoutAction() {

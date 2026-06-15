@@ -16,6 +16,9 @@ export interface Organization {
   subscription_status: SubscriptionStatus;
   trial_ends_at: string | null;
   receipt_counter: number;
+  suspended_at?: string | null;
+  billing_email?: string | null;
+  notes?: string | null;
   created_at: string;
 }
 

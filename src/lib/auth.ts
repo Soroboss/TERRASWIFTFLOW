@@ -52,6 +52,7 @@ export async function requireSession(): Promise<SessionContext> {
 }
 
 export function isSubscriptionActive(org: Organization): boolean {
+  if (org.suspended_at) return false;
   if (org.subscription_status === "active") return true;
   if (org.trial_ends_at && new Date(org.trial_ends_at) > new Date()) return true;
   return false;
