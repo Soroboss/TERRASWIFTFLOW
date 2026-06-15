@@ -1,36 +1,36 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# TerraSwiftFlow — Démarrage local
 
-## Getting Started
-
-First, run the development server:
+## 1. Variables d'environnement
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cp .env.local.example .env.local
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Renseignez les 3 clés depuis [supabase.com/dashboard](https://supabase.com/dashboard) → **Settings → API**.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 2. Base de données
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Dans Supabase → **SQL Editor**, exécutez :
 
-## Learn More
+```
+supabase/full_schema.sql
+```
 
-To learn more about Next.js, take a look at the following resources:
+## 3. Lancer
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+npm install
+npm run setup:check   # vérifie la config
+npm run dev           # http://localhost:3000
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Parcours de test
 
-## Deploy on Vercel
+1. **/** — Landing page
+2. **/register** — Créer votre entreprise (essai 14 jours)
+3. **/dashboard/plans/nouveau** — Plan de masse
+4. **/dashboard/biens/nouveau** — Terrains avec n° de lot
+5. **/dashboard/clients/nouveau** — Clients
+6. **/dashboard/deals/nouveau** — Vente + échéancier + versement PDF
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Guide détaillé : **http://localhost:3000/setup**

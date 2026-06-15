@@ -1,0 +1,65 @@
+import { formatDate } from "@/lib/format";
+import { createClient } from "@/lib/supabase/server";
+import { ContractPDFDocument } from "@/lib/pdf/documents";
+import { renderToBuffer } from "@react-pdf/renderer";
+import { NextResponse } from "next/server";
+
+export async function GET(
+  _request: Request,
+  { params }: { params: { dealId: string } }
+) {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+  }
+
+  const { data: deal } = await supabase
+    .from("deals")
+    .select(
+      "*, client:clients(full_name, phone), property:properties(title, reference), organization:organizations(name)"
+    )
+    .eq("id", params.dealId)
+    .single();
+
+  if (!deal) {
+    return NextResponse.json({ error: "Vente introuvable" }, { status: 404 });
+  }
+
+  const { data: schedules } = await supabase
+    .from("payment_schedules")
+    .select("*")
+    .eq("deal_id", params.dealId)
+    .order("due_date");
+
+  const client = deal.client as { full_name: string; phone: string } | null;
+  const property = deal.property as { title: string; reference: string } | null;
+  const org = deal.organization as { name: string } | null;
+
+  const buffer = await renderToBuffer(
+    ContractPDFDocument({
+      organizationName: org?.name ?? "TerraSwiftFlow",
+      clientName: client?.full_name ?? "—",
+      clientPhone: client?.phone ?? "—",
+      propertyTitle: property?.title ?? "—",
+      propertyReference: property?.reference ?? "—",
+      totalAmount: Number(deal.total_amount),
+      signedAt: deal.signed_at ? formatDate(deal.signed_at as string) : formatDate(deal.created_at as string),
+      schedules: (schedules ?? []).map((s) => ({
+        label: s.label as string,
+        due_date: formatDate(s.due_date as string),
+        amount_due: Number(s.amount_due),
+      })),
+    })
+  );
+
+  return new NextResponse(new Uint8Array(buffer), {
+    headers: {
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `inline; filename="contrat-${params.dealId.slice(0, 8)}.pdf"`,
+    },
+  });
+}
