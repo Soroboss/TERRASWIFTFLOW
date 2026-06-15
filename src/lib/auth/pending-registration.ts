@@ -49,7 +49,12 @@ export async function consumePendingRegistrationCookie(
 export async function bootstrapOrganizationForUser(
   userId: string,
   input: Pick<PendingRegistration, "organizationName" | "fullName" | "phone" | "plan">
-): Promise<{ error?: string }> {
+): Promise<{
+  error?: string;
+  organizationId?: string;
+  trialEndsAt?: string;
+  plan?: Plan;
+}> {
   if (await isPlatformStaffUser(userId)) {
     return {
       error:
@@ -101,5 +106,9 @@ export async function bootstrapOrganizationForUser(
     return { error: "Impossible de créer le profil utilisateur." };
   }
 
-  return {};
+  return {
+    organizationId: org.id,
+    trialEndsAt,
+    plan: selectedPlan,
+  };
 }

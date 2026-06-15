@@ -21,10 +21,16 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { setAuthCookies, clearAuthCookies } from "@insforge/sdk/ssr";
 import type { Plan } from "@/types/database";
+import { addDays } from "date-fns";
+import { TRIAL_DAYS } from "@/lib/pricing";
+import type { PendingRegistration } from "@/lib/auth/pending-registration";
 import {
   bootstrapOrganizationForUser,
   consumePendingRegistrationCookie,
 } from "@/lib/auth/pending-registration";
+import {
+  setRegistrationSuccessCookie,
+} from "@/lib/auth/registration-success";
 import {
   findAuthUserByEmail,
   isPlatformStaffEmail,
@@ -57,6 +63,28 @@ async function assertAuthRateLimit(
     return { error: authRateLimitMessage(result.retryAfterSec) };
   }
   return null;
+}
+
+async function finalizeRegistrationWithoutLogin(
+  userId: string,
+  pendingInput: PendingRegistration
+) {
+  const bootstrap = await bootstrapOrganizationForUser(userId, pendingInput);
+
+  if (bootstrap.error) return { error: bootstrap.error };
+
+  const trialEndsAt =
+    bootstrap.trialEndsAt ?? addDays(new Date(), TRIAL_DAYS).toISOString();
+
+  await setRegistrationSuccessCookie({
+    email: pendingInput.email,
+    organizationName: pendingInput.organizationName,
+    fullName: pendingInput.fullName,
+    plan: bootstrap.plan ?? pendingInput.plan,
+    trialEndsAt,
+  });
+
+  return { success: true as const };
 }
 
 export async function registerAction(input: RegisterInput) {
@@ -119,32 +147,7 @@ export async function registerAction(input: RegisterInput) {
     };
   }
 
-  const insforge = await createClient();
-  const { data: signInData, error: signInError } = await insforge.auth.signInWithPassword({
-    email: data.email,
-    password: data.password,
-  });
-
-  if (signInError || !signInData?.accessToken) {
-    return {
-      error:
-        existingUser
-          ? "Un compte existe déjà avec cet e-mail. Utilisez la connexion ou réinitialisez votre mot de passe."
-          : (signInError?.message ?? "Connexion impossible après inscription."),
-    };
-  }
-
-  const cookieStore = await cookies();
-  setAuthCookies(cookieStore, {
-    accessToken: signInData.accessToken,
-    refreshToken: signInData.refreshToken,
-  });
-
-  const userId = signInData.user?.id ?? provisioned.user.id;
-  const bootstrap = await bootstrapOrganizationForUser(userId, pendingInput);
-  if (bootstrap.error) return { error: bootstrap.error };
-
-  redirect("/dashboard");
+  return finalizeRegistrationWithoutLogin(provisioned.user.id, pendingInput);
 }
 
 /** Active une inscription en attente sans code OTP (SMTP non configuré ou e-mail non reçu). */
@@ -177,29 +180,7 @@ export async function completeRegistrationActivationAction(email: string, passwo
     return { error: provisioned.error ?? "Activation impossible." };
   }
 
-  const insforge = await createClient();
-  const { data: signInData, error: signInError } = await insforge.auth.signInWithPassword({
-    email: parsed.data.email,
-    password: parsed.data.password,
-  });
-
-  if (signInError || !signInData?.accessToken) {
-    return { error: signInError?.message ?? "Connexion impossible." };
-  }
-
-  const cookieStore = await cookies();
-  setAuthCookies(cookieStore, {
-    accessToken: signInData.accessToken,
-    refreshToken: signInData.refreshToken,
-  });
-
-  const bootstrap = await bootstrapOrganizationForUser(
-    signInData.user?.id ?? provisioned.user.id,
-    pending
-  );
-  if (bootstrap.error) return { error: bootstrap.error };
-
-  redirect("/dashboard");
+  return finalizeRegistrationWithoutLogin(provisioned.user.id, pending);
 }
 
 export async function verifyEmailAction(email: string, otp: string) {

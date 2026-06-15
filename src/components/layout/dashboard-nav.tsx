@@ -6,6 +6,7 @@ import {
   Bell,
   Building2,
   Handshake,
+  CreditCard,
   LayoutDashboard,
   LogOut,
   Map,
@@ -28,6 +29,7 @@ const NAV_ITEMS = [
   { href: "/dashboard/clients", label: "Clients", icon: Users },
   { href: "/dashboard/deals", label: "Ventes", icon: Handshake },
   { href: "/dashboard/relances", label: "Relances", icon: Bell },
+  { href: "/dashboard/abonnement", label: "Abonnement", icon: CreditCard },
 ];
 
 interface DashboardNavProps {

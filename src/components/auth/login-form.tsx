@@ -8,8 +8,12 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { loginAction } from "@/lib/actions/auth";
 
-export function LoginForm() {
-  const [email, setEmail] = useState("");
+interface LoginFormProps {
+  defaultEmail?: string;
+}
+
+export function LoginForm({ defaultEmail = "" }: LoginFormProps) {
+  const [email, setEmail] = useState(defaultEmail);
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);

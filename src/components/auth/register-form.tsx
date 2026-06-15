@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import Link from "next/link";
 import { Check } from "lucide-react";
@@ -22,6 +23,7 @@ interface RegisterFormProps {
 }
 
 export function RegisterForm({ defaultPlan = "starter" }: RegisterFormProps) {
+  const router = useRouter();
   const [step, setStep] = useState<Step>("form");
   const [selectedPlan, setSelectedPlan] = useState<PublicPlanId>(defaultPlan);
   const [fullName, setFullName] = useState("");
@@ -55,6 +57,8 @@ export function RegisterForm({ defaultPlan = "starter" }: RegisterFormProps) {
       setLoading(false);
       return;
     }
+
+    router.push("/inscription-reussie");
   };
 
   const handleActivateWithoutCode = async () => {
@@ -66,7 +70,10 @@ export function RegisterForm({ defaultPlan = "starter" }: RegisterFormProps) {
     if (result?.error) {
       setError(result.error);
       setLoading(false);
+      return;
     }
+
+    router.push("/inscription-reussie");
   };
 
   const handleVerify = async () => {
@@ -173,7 +180,7 @@ export function RegisterForm({ defaultPlan = "starter" }: RegisterFormProps) {
       <CardHeader>
         <CardTitle>Créer votre compte</CardTitle>
         <CardDescription>
-          Accès immédiat après inscription — aucun code e-mail requis
+          Créez votre entreprise — vous serez invité à vous connecter ensuite
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">

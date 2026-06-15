@@ -6,7 +6,12 @@ import { SetupBanner } from "@/components/setup/setup-banner";
 import { getSessionContext } from "@/lib/auth";
 import { getPlatformSession } from "@/lib/platform/auth";
 
-export default async function LoginPage() {
+interface LoginPageProps {
+  searchParams: Promise<{ email?: string }>;
+}
+
+export default async function LoginPage({ searchParams }: LoginPageProps) {
+  const { email } = await searchParams;
   const [tenantSession, platformSession] = await Promise.all([
     getSessionContext(),
     getPlatformSession(),
@@ -32,7 +37,7 @@ export default async function LoginPage() {
             Gestion immobilière — Côte d&apos;Ivoire
           </p>
         </div>
-        <LoginForm />
+        <LoginForm defaultEmail={email ?? ""} />
       </div>
     </div>
   );
