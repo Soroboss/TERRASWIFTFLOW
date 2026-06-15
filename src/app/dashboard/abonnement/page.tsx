@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireSession } from "@/lib/auth";
 import { TrialCountdown } from "@/components/subscription/trial-countdown";
+import { PaymentSupportContacts } from "@/components/payment/payment-support-contacts";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDate } from "@/lib/format";
@@ -90,6 +91,9 @@ export default async function AbonnementPage() {
             <Button asChild>
               <Link href="/paywall">Accéder à la page de paiement</Link>
             </Button>
+            <div className="mt-4">
+              <PaymentSupportContacts compact />
+            </div>
           </CardContent>
         </Card>
       )}

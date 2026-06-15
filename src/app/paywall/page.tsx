@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageBackNav } from "@/components/layout/page-back-nav";
 import { SubscriptionPaymentForm } from "@/components/payment/subscription-payment-form";
+import { PaymentSupportContacts } from "@/components/payment/payment-support-contacts";
 import { getSessionContext, isSubscriptionActive } from "@/lib/auth";
 import { formatFcfa, getPlanById, PRICING_PLANS } from "@/lib/pricing";
 import { TrialCountdown } from "@/components/subscription/trial-countdown";
@@ -77,16 +78,9 @@ export default async function PaywallPage() {
 
             <SubscriptionPaymentForm planName={plan.name} amountLabel={amountLabel} />
 
-            <div className="flex flex-col gap-2 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-sm text-muted-foreground">
-                Besoin d&apos;aide ?{" "}
-                <a
-                  href="mailto:contact@terraswiftflow.ci"
-                  className="text-primary hover:underline"
-                >
-                  contact@terraswiftflow.ci
-                </a>
-              </p>
+            <PaymentSupportContacts />
+
+            <div className="flex flex-col gap-2 border-t pt-4 sm:flex-row sm:items-center sm:justify-end">
               {trialActive && (
                 <Button asChild variant="outline">
                   <Link href="/dashboard">Retour au tableau de bord</Link>

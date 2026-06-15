@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { submitSubscriptionPaymentAction } from "@/lib/actions/subscription-payment";
+import { PaymentSupportContacts } from "@/components/payment/payment-support-contacts";
 import { cn } from "@/lib/utils";
 import { CreditCard, Smartphone } from "lucide-react";
 
@@ -207,6 +208,8 @@ export function SubscriptionPaymentForm({ planName, amountLabel }: SubscriptionP
       {error && (
         <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</div>
       )}
+
+      <PaymentSupportContacts compact />
 
       <Button className="w-full" size="lg" onClick={handleSubmit} disabled={loading}>
         {loading ? "Enregistrement…" : `Payer ${amountLabel}`}
