@@ -223,6 +223,13 @@ export async function loginAction(email: string, password: string) {
   });
 
   if (error) {
+    const message = error.message.toLowerCase();
+    if (message.includes("verif") || message.includes("confirm")) {
+      return {
+        error:
+          "E-mail non vérifié. Demandez à votre responsable de recréer votre accès depuis Équipe, ou saisissez le code reçu par e-mail sur la page d'inscription.",
+      };
+    }
     return { error: error.message };
   }
 

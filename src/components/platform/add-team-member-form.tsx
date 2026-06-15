@@ -92,9 +92,9 @@ export function AddTeamMemberForm() {
         {loading ? "Création…" : "Créer le compte et l'ajouter"}
       </Button>
       <p className="text-xs text-muted-foreground">
-        Si l&apos;e-mail n&apos;existe pas encore, un compte staff est créé automatiquement
-        (sans organisation cliente). Sinon, le compte existant est simplement ajouté à
-        l&apos;équipe — le mot de passe n&apos;est alors pas requis.
+        Si l&apos;e-mail n&apos;existe pas encore, un compte est créé et activé
+        immédiatement — le collaborateur se connecte avec l&apos;e-mail et le mot de passe,
+        sans code de vérification par e-mail.
       </p>
     </div>
   );

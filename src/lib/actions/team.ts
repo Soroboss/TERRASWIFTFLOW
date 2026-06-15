@@ -2,10 +2,8 @@
 
 import { requireSession } from "@/lib/auth";
 import {
-  createAuthUser,
-  findAuthUserByEmail,
   isPlatformStaffUser,
-  verifyAuthUserEmail,
+  provisionAuthUserForInvite,
 } from "@/lib/auth/insforge-admin-users";
 import { createServiceClient } from "@/lib/insforge/admin";
 import { normalizePhoneCI } from "@/lib/format";
@@ -75,33 +73,17 @@ export async function addOrganizationTeamMemberAction(
     };
   }
 
-  let authUser = await findAuthUserByEmail(normalizedEmail);
-  let created = false;
-
-  if (!authUser) {
-    const pwd = parsed.data.password?.trim();
-    if (!pwd) {
-      return {
-        error:
-          "Ce compte n'existe pas encore. Indiquez un mot de passe pour créer l'accès du collaborateur.",
-      };
-    }
-
-    const createdResult = await createAuthUser(normalizedEmail, pwd, displayName);
-    if (createdResult.error) return { error: createdResult.error };
-
-    authUser = await findAuthUserByEmail(normalizedEmail);
-    if (!authUser) {
-      return { error: "Compte créé mais introuvable. Réessayez dans quelques secondes." };
-    }
-
-    const verified = await verifyAuthUserEmail(authUser.id);
-    if (!verified) {
-      return { error: "Compte créé mais l'e-mail n'a pas pu être validé." };
-    }
-
-    created = true;
+  const provisioned = await provisionAuthUserForInvite({
+    email: normalizedEmail,
+    password: parsed.data.password,
+    fullName: displayName,
+  });
+  if (provisioned.error || !provisioned.user) {
+    return { error: provisioned.error ?? "Impossible de préparer le compte." };
   }
+
+  const authUser = provisioned.user;
+  const created = Boolean(provisioned.created);
 
   if (await isPlatformStaffUser(authUser.id)) {
     return {
@@ -142,8 +124,8 @@ export async function addOrganizationTeamMemberAction(
     success: true,
     created,
     message: created
-      ? "Collaborateur créé et ajouté. Communiquez-lui ses identifiants de connexion."
-      : "Collaborateur ajouté à votre organisation.",
+      ? "Collaborateur créé avec connexion immédiate. Il peut se connecter tout de suite avec l'e-mail et le mot de passe définis — aucun code e-mail requis."
+      : "Collaborateur ajouté. Connexion immédiate activée avec son mot de passe existant.",
   };
 }
 

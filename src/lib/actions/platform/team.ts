@@ -3,9 +3,7 @@
 import { createServiceClient } from "@/lib/insforge/admin";
 import { logPlatformAction } from "@/lib/actions/platform/audit";
 import {
-  createAuthUser,
-  findAuthUserByEmail,
-  verifyAuthUserEmail,
+  provisionAuthUserForInvite,
 } from "@/lib/auth/insforge-admin-users";
 import { canManageTeam, requirePlatformSession } from "@/lib/platform/auth";
 import { parseInput } from "@/lib/validations/parse";
@@ -46,36 +44,18 @@ export async function addPlatformTeamMemberAction(
 
   const normalizedEmail = parsed.data.email.toLowerCase();
   const displayName = parsed.data.fullName.trim();
-  let authUser = await findAuthUserByEmail(normalizedEmail);
-  let created = false;
 
-  if (!authUser) {
-    const pwd = parsed.data.password?.trim();
-    if (!pwd) {
-      return {
-        error:
-          "Ce compte n'existe pas encore. Renseignez un mot de passe pour créer le compte staff.",
-      };
-    }
-
-    const createdResult = await createAuthUser(normalizedEmail, pwd, displayName);
-    if (createdResult.error) return { error: createdResult.error };
-
-    authUser = await findAuthUserByEmail(normalizedEmail);
-    if (!authUser) {
-      return { error: "Compte créé mais introuvable. Réessayez dans quelques secondes." };
-    }
-
-    const verified = await verifyAuthUserEmail(authUser.id);
-    if (!verified) {
-      return {
-        error:
-          "Compte créé mais l'e-mail n'a pas pu être validé. Contactez le support technique.",
-      };
-    }
-
-    created = true;
+  const provisioned = await provisionAuthUserForInvite({
+    email: normalizedEmail,
+    password: parsed.data.password,
+    fullName: displayName,
+  });
+  if (provisioned.error || !provisioned.user) {
+    return { error: provisioned.error ?? "Impossible de préparer le compte." };
   }
+
+  const authUser = provisioned.user;
+  const created = Boolean(provisioned.created);
 
   const service = createServiceClient();
 
@@ -116,8 +96,8 @@ export async function addPlatformTeamMemberAction(
     success: true,
     created,
     message: created
-      ? "Compte staff créé et ajouté à l'équipe. Communiquez le mot de passe au collaborateur."
-      : "Membre ajouté à l'équipe plateforme.",
+      ? "Compte staff créé avec connexion immédiate — aucun code e-mail requis."
+      : "Membre ajouté à l'équipe plateforme avec connexion immédiate.",
   };
 }
 

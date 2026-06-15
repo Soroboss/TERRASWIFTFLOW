@@ -105,9 +105,8 @@ export function AddOrganizationMemberForm() {
         {loading ? "Création…" : "Créer le collaborateur"}
       </Button>
       <p className="text-xs text-muted-foreground">
-        Le collaborateur se connecte sur la page de connexion standard avec cet e-mail. Si le
-        compte n&apos;existe pas encore, il est créé automatiquement pour votre organisation
-        uniquement.
+        Le collaborateur se connecte sur /login avec cet e-mail. Compte activé
+        immédiatement — pas de code e-mail à saisir.
       </p>
     </div>
   );
