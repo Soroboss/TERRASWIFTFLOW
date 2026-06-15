@@ -21,17 +21,9 @@ export default async function OrganizationTeamPage() {
       <div>
         <h1 className="text-2xl font-bold">Équipe</h1>
         <p className="text-muted-foreground">
-          Gérez les collaborateurs de {session.organization.name} — indépendants de l&apos;admin
-          TerraSwiftFlow
+          Gérez les collaborateurs de {session.organization.name}
         </p>
       </div>
-
-      <Card className="border-primary/20 bg-primary/5">
-        <CardContent className="pt-4 text-sm text-muted-foreground">
-          Chaque organisation gère ses propres agents et managers. L&apos;administrateur SaaS
-          TerraSwiftFlow n&apos;a pas accès à cette liste ni ne peut créer vos collaborateurs.
-        </CardContent>
-      </Card>
 
       <Card>
         <CardHeader>
