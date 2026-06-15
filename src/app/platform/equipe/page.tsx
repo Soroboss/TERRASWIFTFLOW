@@ -58,7 +58,7 @@ export default async function PlatformTeamPage() {
       {canManage && (
         <Card>
           <CardHeader>
-            <CardTitle>Ajouter un membre staff</CardTitle>
+            <CardTitle>Créer un membre staff</CardTitle>
           </CardHeader>
           <CardContent>
             <AddTeamMemberForm />

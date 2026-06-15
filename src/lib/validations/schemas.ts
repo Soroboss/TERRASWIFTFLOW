@@ -28,6 +28,15 @@ export const resendEmailSchema = z.object({
   email: z.string().trim().email("Adresse e-mail invalide."),
 });
 
+export const platformStaffMemberSchema = z.object({
+  email: z.string().trim().email("Adresse e-mail invalide."),
+  password: z
+    .union([z.literal(""), z.string().min(8, "Mot de passe : minimum 8 caractères.")])
+    .default(""),
+  fullName: z.string().trim().min(2, "Nom affiché requis.").max(120),
+  role: z.enum(["super_admin", "support", "billing"]),
+});
+
 export const clientSchema = z.object({
   full_name: z.string().trim().min(2).max(120),
   phone: z.string().trim().min(8).max(20),
