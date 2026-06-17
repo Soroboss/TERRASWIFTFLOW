@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -8,7 +9,9 @@ import { LotStatusSummary } from "@/components/dashboard/lot-status-summary";
 import { getPropertiesList, type PropertyListFilters } from "@/lib/actions/properties";
 import { getPropertyStatusCounts } from "@/lib/actions/masterplans";
 import { requireSession } from "@/lib/auth";
-import { canManageCatalog } from "@/lib/auth/permissions";
+import { canManageCatalog, canViewAllData } from "@/lib/auth/permissions";
+import { formatLotNumberReference, getLotPhotoUrl } from "@/lib/catalog-visibility";
+import { propertyStatusColorClass } from "@/lib/property-status";
 import { formatFCFA } from "@/lib/format";
 import type { PropertyStatus, PropertyType } from "@/types/database";
 
@@ -19,6 +22,7 @@ interface PageProps {
 export default async function BiensPage({ searchParams }: PageProps) {
   const session = await requireSession();
   const canManage = canManageCatalog(session.profile.role);
+  const showSoldLots = canViewAllData(session.profile.role);
   const params = await searchParams;
   const filters: PropertyListFilters = {
     q: params.q,
@@ -56,9 +60,15 @@ export default async function BiensPage({ searchParams }: PageProps) {
         libres={counts.libres}
         reserves={counts.reserves}
         vendus={counts.vendus}
+        showSold={showSoldLots}
       />
 
-      <PropertyFilters q={params.q} status={params.status} type={params.type} />
+      <PropertyFilters
+        q={params.q}
+        status={params.status}
+        type={params.type}
+        hideSoldStatus={!showSoldLots}
+      />
 
       <p className="text-sm text-muted-foreground">
         {properties.length} bien{properties.length !== 1 ? "s" : ""} affiché
@@ -83,30 +93,55 @@ export default async function BiensPage({ searchParams }: PageProps) {
         </Card>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {properties.map((property) => (
-            <Link key={property.id} href={`/dashboard/biens/${property.id}`}>
-              <Card className="h-full transition-shadow hover:shadow-md">
-                <CardContent className="p-4">
-                  <div className="mb-2 flex items-start justify-between gap-2">
-                    <div>
-                      <p className="font-semibold">{property.title}</p>
-                      <p className="text-xs text-muted-foreground">{property.reference}</p>
+          {properties.map((property) => {
+            const { number, reference } = formatLotNumberReference(property);
+            const photoUrl = getLotPhotoUrl(property.photos);
+            return (
+              <Link key={property.id} href={`/dashboard/biens/${property.id}`}>
+                <Card className="h-full overflow-hidden transition-shadow hover:shadow-md">
+                  <div className="relative aspect-[16/10] w-full border-b bg-muted">
+                    {photoUrl ? (
+                      <Image
+                        src={photoUrl}
+                        alt=""
+                        fill
+                        className="object-cover"
+                        sizes="(max-width: 768px) 100vw, 33vw"
+                        unoptimized
+                      />
+                    ) : (
+                      <div
+                        className={`h-full w-full ${propertyStatusColorClass(property.status)}`}
+                        aria-hidden
+                      />
+                    )}
+                  </div>
+                  <CardContent className="p-4">
+                    <div className="mb-2 flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        {number && <p className="truncate font-semibold">{number}</p>}
+                        {reference && (
+                          <p className="truncate text-xs text-muted-foreground">{reference}</p>
+                        )}
+                        {!number && !reference && (
+                          <p className="truncate font-semibold">{property.title}</p>
+                        )}
+                      </div>
+                      <PropertyStatusBadge status={property.status} />
                     </div>
-                    <PropertyStatusBadge status={property.status} />
-                  </div>
-                  <p className="text-lg font-bold text-primary">
-                    {formatFCFA(property.price_total)}
-                  </p>
-                  <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
-                    <span>{property.type === "terrain" ? "Terrain" : "Maison"}</span>
-                    {property.lot_number && <span>• Lot {property.lot_number}</span>}
-                    {property.surface_m2 && <span>• {property.surface_m2} m²</span>}
-                    {property.location_label && <span>• {property.location_label}</span>}
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
+                    <p className="text-lg font-bold text-primary">
+                      {formatFCFA(property.price_total)}
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                      <span>{property.type === "terrain" ? "Terrain" : "Maison"}</span>
+                      {property.surface_m2 && <span>• {property.surface_m2} m²</span>}
+                      {property.location_label && <span>• {property.location_label}</span>}
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+            );
+          })}
         </div>
       )}
     </div>

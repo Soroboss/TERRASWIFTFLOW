@@ -11,6 +11,12 @@ import { PaymentScheduleList } from "@/components/dashboard/payment-schedule-lis
 import { Card, CardContent } from "@/components/ui/card";
 import { ActivityList } from "@/components/activities/activity-list";
 import {
+  canManageCatalog,
+  canManageSubscription,
+  canViewAllData,
+  canViewCompanyRevenue,
+} from "@/lib/auth/permissions";
+import {
   AlertTriangle,
   Building2,
   Calendar,
@@ -24,6 +30,9 @@ export default async function DashboardPage() {
   const session = await requireSession();
   const { organization, profile } = session;
   const agentFilter = profile.role === "agent" ? profile.id : null;
+  const showCompanyRevenue = canViewCompanyRevenue(profile.role);
+  const canManage = canManageCatalog(profile.role);
+  const showSoldLots = canViewAllData(profile.role);
 
   const {
     kpis,
@@ -58,10 +67,12 @@ export default async function DashboardPage() {
             {organization.name} — vente cash ou échelonnée
           </p>
         </div>
-        <QuickActions />
+        <QuickActions role={profile.role} />
       </div>
 
-      {organization.subscription_status === "trial" && trialDaysLeft !== null && (
+      {canManageSubscription(profile.role) &&
+        organization.subscription_status === "trial" &&
+        trialDaysLeft !== null && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
           Essai {planInfo.name} — {trialDaysLeft} jour{trialDaysLeft > 1 ? "s" : ""} restant
           {trialDaysLeft > 1 ? "s" : ""}
@@ -92,7 +103,7 @@ export default async function DashboardPage() {
       <DashboardOverviewPanel
         organizationName={organization.name}
         programName={primaryMasterplan?.masterplan.name ?? null}
-        trialDaysLeft={trialDaysLeft}
+        trialDaysLeft={canManageSubscription(profile.role) ? trialDaysLeft : null}
         libres={libres}
         reserves={reserves}
         vendus={vendus}
@@ -105,10 +116,18 @@ export default async function DashboardPage() {
             ? `/dashboard/plans/${primaryMasterplan.masterplan.id}`
             : "/dashboard/plans"
         }
+        showCollectedBanner={showCompanyRevenue}
+        showSoldInLegend={showSoldLots}
+        showSoldInSummary={showSoldLots}
+        emptyLotsMessage={
+          canManage
+            ? "Créez un plan de masse et rattachez vos lots pour les voir ici."
+            : "Aucun lot à afficher pour le moment."
+        }
         gridMaxVisible={96}
       />
 
-      {!primaryMasterplan && (
+      {!primaryMasterplan && canManage && (
         <p className="text-sm text-muted-foreground">
           <Link href="/dashboard/plans/nouveau" className="text-primary hover:underline">
             Créez un plan de masse
@@ -118,19 +137,21 @@ export default async function DashboardPage() {
       )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiStatCard
-          title="Encaissé ce mois"
-          value={formatFCFA(kpis.collected_this_month)}
-          subtitle={
-            kpis.overdue_count > 0
-              ? `${kpis.overdue_count} retard${kpis.overdue_count > 1 ? "s" : ""}`
-              : "Cash & échelonné"
-          }
-          href="/dashboard/encaissements"
-          icon={Calendar}
-          valueClassName="text-emerald-700"
-          alert={kpis.overdue_count > 0}
-        />
+        {showCompanyRevenue && (
+          <KpiStatCard
+            title="Encaissé ce mois"
+            value={formatFCFA(kpis.collected_this_month)}
+            subtitle={
+              kpis.overdue_count > 0
+                ? `${kpis.overdue_count} retard${kpis.overdue_count > 1 ? "s" : ""}`
+                : "Cash & échelonné"
+            }
+            href="/dashboard/encaissements"
+            icon={Calendar}
+            valueClassName="text-emerald-700"
+            alert={kpis.overdue_count > 0}
+          />
+        )}
         <KpiStatCard
           title="Biens"
           value={String(propertyCounts.total)}
@@ -139,16 +160,20 @@ export default async function DashboardPage() {
           icon={Building2}
         />
         <KpiStatCard
-          title="Clients"
+          title={showCompanyRevenue ? "Clients" : "Mes clients"}
           value={String(headlineCounts.clients)}
           subtitle="Acquéreurs enregistrés"
           href="/dashboard/clients"
           icon={Users}
         />
         <KpiStatCard
-          title="Ventes actives"
+          title={showCompanyRevenue ? "Ventes actives" : "Mes ventes actives"}
           value={String(headlineCounts.activeDeals)}
-          subtitle={`${formatFCFA(kpis.total_remaining)} restant`}
+          subtitle={
+            showCompanyRevenue
+              ? `${formatFCFA(kpis.total_remaining)} restant`
+              : "En cours d'achat"
+          }
           href="/dashboard/deals"
           icon={Handshake}
         />

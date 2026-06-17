@@ -10,9 +10,15 @@ interface PropertyFiltersProps {
   q?: string;
   status?: string;
   type?: string;
+  hideSoldStatus?: boolean;
 }
 
-export function PropertyFilters({ q = "", status = "", type = "" }: PropertyFiltersProps) {
+export function PropertyFilters({
+  q = "",
+  status = "",
+  type = "",
+  hideSoldStatus = false,
+}: PropertyFiltersProps) {
   const router = useRouter();
 
   const pushFilters = (next: PropertyFiltersProps) => {
@@ -55,7 +61,7 @@ export function PropertyFilters({ q = "", status = "", type = "" }: PropertyFilt
           <option value="">Tous</option>
           <option value="libre">Libre</option>
           <option value="reserve">Réservé</option>
-          <option value="vendu">Vendu</option>
+          {!hideSoldStatus && <option value="vendu">Vendu</option>}
         </Select>
       </div>
       <div className="space-y-2">

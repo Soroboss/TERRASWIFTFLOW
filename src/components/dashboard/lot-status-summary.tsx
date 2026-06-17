@@ -5,17 +5,26 @@ interface LotStatusSummaryProps {
   reserves: number;
   vendus: number;
   compact?: boolean;
+  showSold?: boolean;
 }
 
-export function LotStatusSummary({ libres, reserves, vendus, compact }: LotStatusSummaryProps) {
+export function LotStatusSummary({
+  libres,
+  reserves,
+  vendus,
+  compact,
+  showSold = true,
+}: LotStatusSummaryProps) {
   const items = [
     { label: "Libres", value: libres, status: "libre" as const },
     { label: "Réservés", value: reserves, status: "reserve" as const },
-    { label: "Vendus", value: vendus, status: "vendu" as const },
+    ...(showSold ? [{ label: "Vendus", value: vendus, status: "vendu" as const }] : []),
   ];
 
   return (
-    <div className={`grid grid-cols-3 gap-2 ${compact ? "" : "mb-3"}`}>
+    <div
+      className={`grid gap-2 ${items.length === 2 ? "grid-cols-2" : "grid-cols-3"} ${compact ? "" : "mb-3"}`}
+    >
       {items.map((item) => (
         <div
           key={item.label}

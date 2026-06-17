@@ -6,7 +6,6 @@ import { parseInput } from "@/lib/validations/parse";
 import { activitySchema } from "@/lib/validations/schemas";
 import type { Activity, ActivityType } from "@/types/entities";
 import { getAgentScopeId } from "@/lib/auth/permissions";
-import { assertClientAccess } from "@/lib/auth/resource-access";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 

@@ -15,7 +15,7 @@ import {
 } from "@/lib/actions/deals";
 import { getOrganizationAgents } from "@/lib/actions/clients";
 import { requireSession } from "@/lib/auth";
-import { canViewAllData } from "@/lib/auth/permissions";
+import { canViewAllData, canViewCompanyRevenue } from "@/lib/auth/permissions";
 import { formatFCFA, formatDate } from "@/lib/format";
 import type { Deal } from "@/types/database";
 
@@ -40,11 +40,12 @@ export default async function DealsPage({ searchParams }: PageProps) {
   };
 
   const isManager = canViewAllData(session.profile.role);
+  const showCompanyRevenue = canViewCompanyRevenue(session.profile.role);
   const agentId = isManager ? (params.agent ?? null) : session.userId;
 
   const [deals, counts, kpis, agents] = await Promise.all([
     getDealsList({ ...filters, agent: agentId ?? filters.agent }),
-    getDealStatusCounts(),
+    getDealStatusCounts(agentId),
     getDashboardKPIs(agentId),
     isManager ? getOrganizationAgents() : Promise.resolve([]),
   ]);
@@ -68,16 +69,22 @@ export default async function DealsPage({ searchParams }: PageProps) {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <KpiStatCard
-          title="Ventes actives"
+          title={showCompanyRevenue ? "Ventes actives" : "Mes ventes actives"}
           value={String(counts.en_cours)}
           icon={Handshake}
         />
-        <KpiStatCard title="Soldées" value={String(counts.solde)} subtitle="Terminées" />
         <KpiStatCard
-          title="Reste à encaisser"
-          value={formatFCFA(kpis.total_remaining)}
-          icon={Wallet}
+          title={showCompanyRevenue ? "Soldées" : "Mes ventes soldées"}
+          value={String(counts.solde)}
+          subtitle="Terminées"
         />
+        {showCompanyRevenue && (
+          <KpiStatCard
+            title="Reste à encaisser"
+            value={formatFCFA(kpis.total_remaining)}
+            icon={Wallet}
+          />
+        )}
         <KpiStatCard
           title="Échéances en retard"
           value={String(kpis.overdue_count)}

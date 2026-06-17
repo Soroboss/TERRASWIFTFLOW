@@ -17,16 +17,23 @@ export interface PlanUsage {
   maxAgents: number | null;
 }
 
-export async function getTenantHeadlineCounts(): Promise<TenantHeadlineCounts> {
+export async function getTenantHeadlineCounts(
+  agentId?: string | null
+): Promise<TenantHeadlineCounts> {
   const insforge = await createClient();
 
-  const [clientsResult, dealsResult] = await Promise.all([
-    insforge.database.from("clients").select("id", { count: "exact", head: true }),
-    insforge.database
-      .from("deals")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "en_cours"),
-  ]);
+  let clientsQuery = insforge.database.from("clients").select("id", { count: "exact", head: true });
+  let dealsQuery = insforge.database
+    .from("deals")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "en_cours");
+
+  if (agentId) {
+    clientsQuery = clientsQuery.eq("assigned_agent_id", agentId);
+    dealsQuery = dealsQuery.eq("agent_id", agentId);
+  }
+
+  const [clientsResult, dealsResult] = await Promise.all([clientsQuery, dealsQuery]);
 
   if (clientsResult.error) throw new Error(clientsResult.error.message);
   if (dealsResult.error) throw new Error(dealsResult.error.message);

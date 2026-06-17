@@ -8,7 +8,7 @@ import { getDashboardKPIs } from "@/lib/actions/dashboard";
 import { getMonthlyPaymentBreakdown, getRecentPayments } from "@/lib/actions/payments";
 import { getOrganizationAgents } from "@/lib/actions/clients";
 import { requireSession } from "@/lib/auth";
-import { canViewAllData, getAgentScopeId } from "@/lib/auth/permissions";
+import { canViewAllData, canViewCompanyRevenue, getAgentScopeId } from "@/lib/auth/permissions";
 import { formatFCFA } from "@/lib/format";
 import { AlertTriangle, Calendar, Clock, Wallet } from "lucide-react";
 
@@ -20,6 +20,7 @@ export default async function EncaissementsPage({ searchParams }: PageProps) {
   const session = await requireSession();
   const { agent } = await searchParams;
   const agentId = getAgentScopeId(session) ?? agent ?? null;
+  const showCompanyRevenue = canViewCompanyRevenue(session.profile.role);
 
   const [kpis, agents, recentPayments, methodBreakdown] = await Promise.all([
     getDashboardKPIs(agentId),
@@ -34,7 +35,9 @@ export default async function EncaissementsPage({ searchParams }: PageProps) {
         <div>
           <h1 className="text-2xl font-bold">Encaissements</h1>
           <p className="text-muted-foreground">
-            Cash, Wave, Orange Money, MTN MoMo et échéanciers
+            {showCompanyRevenue
+              ? "Cash, Wave, Orange Money, MTN MoMo et échéanciers"
+              : "Vos encaissements et échéances clients"}
           </p>
         </div>
         {canViewAllData(session.profile.role) && (
@@ -48,13 +51,13 @@ export default async function EncaissementsPage({ searchParams }: PageProps) {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <KpiStatCard
-          title="Encaissé ce mois"
+          title={showCompanyRevenue ? "Encaissé ce mois" : "Mes encaissements ce mois"}
           value={formatFCFA(kpis.collected_this_month)}
           icon={Wallet}
           valueClassName="text-emerald-700"
         />
         <KpiStatCard
-          title="Reste à encaisser"
+          title={showCompanyRevenue ? "Reste à encaisser" : "Mon reste à encaisser"}
           value={formatFCFA(kpis.total_remaining)}
           subtitle="Ventes en cours"
           icon={Calendar}

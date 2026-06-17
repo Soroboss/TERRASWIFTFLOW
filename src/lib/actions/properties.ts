@@ -1,7 +1,8 @@
 "use server";
 
 import { requireSession } from "@/lib/auth";
-import { canDeleteCatalog, canManageCatalog } from "@/lib/auth/permissions";
+import { canDeleteCatalog, canManageCatalog, canViewAllData } from "@/lib/auth/permissions";
+import { canAgentViewPropertyStatus } from "@/lib/catalog-visibility";
 import { normalizeProperties, normalizeProperty } from "@/lib/properties";
 import { createClient } from "@/lib/insforge/server";
 import { parseInput } from "@/lib/validations/parse";
@@ -52,6 +53,7 @@ export type PropertyListItem = Pick<
   | "surface_m2"
   | "location_label"
   | "lot_number"
+  | "photos"
 >;
 
 export interface PropertyListFilters {
@@ -64,15 +66,24 @@ export interface PropertyListFilters {
 export async function getPropertiesList(
   filters?: PropertyListFilters
 ): Promise<PropertyListItem[]> {
+  const session = await requireSession();
   const insforge = await createClient();
   let query = insforge.database
     .from("properties")
     .select(
-      "id, type, title, reference, status, price_total, surface_m2, location_label, lot_number"
+      "id, type, title, reference, status, price_total, surface_m2, location_label, lot_number, photos"
     )
     .order("created_at", { ascending: false });
 
+  const isAgent = !canViewAllData(session.profile.role);
+  if (isAgent) {
+    query = query.neq("status", "vendu");
+  }
+
   if (filters?.status) {
+    if (isAgent && filters.status === "vendu") {
+      return [];
+    }
     query = query.eq("status", filters.status);
   }
   if (filters?.type) {
@@ -91,10 +102,12 @@ export async function getPropertiesList(
     ...row,
     price_total: Number(row.price_total),
     surface_m2: row.surface_m2 ? Number(row.surface_m2) : null,
+    photos: Array.isArray(row.photos) ? row.photos : [],
   })) as PropertyListItem[];
 }
 
 export async function getProperty(id: string): Promise<Property | null> {
+  const session = await requireSession();
   const insforge = await createClient();
   const { data, error } = await insforge.database
     .from("properties")
@@ -103,7 +116,11 @@ export async function getProperty(id: string): Promise<Property | null> {
     .single();
 
   if (error || !data) return null;
-  return normalizeProperty(data as Property);
+  const property = normalizeProperty(data as Property);
+  if (!canAgentViewPropertyStatus(property.status, session.profile.role)) {
+    return null;
+  }
+  return property;
 }
 
 export async function createPropertyAction(input: PropertyInput) {

@@ -45,11 +45,34 @@ export interface ClientStats {
   bySource: Record<string, number>;
 }
 
-export async function getClientStats(): Promise<ClientStats> {
+export async function getClientStats(agentId?: string | null): Promise<ClientStats> {
   const insforge = await createClient();
   const monthStart = new Date();
   monthStart.setDate(1);
   monthStart.setHours(0, 0, 0, 0);
+
+  let totalQuery = insforge.database.from("clients").select("id", { count: "exact", head: true });
+  let diasporaQuery = insforge.database
+    .from("clients")
+    .select("id", { count: "exact", head: true })
+    .eq("is_diaspora", true);
+  let newMonthQuery = insforge.database
+    .from("clients")
+    .select("id", { count: "exact", head: true })
+    .gte("created_at", monthStart.toISOString());
+  let sourcesQuery = insforge.database.from("clients").select("source");
+  let activeDealsQuery = insforge.database
+    .from("deals")
+    .select("client_id")
+    .eq("status", "en_cours");
+
+  if (agentId) {
+    totalQuery = totalQuery.eq("assigned_agent_id", agentId);
+    diasporaQuery = diasporaQuery.eq("assigned_agent_id", agentId);
+    newMonthQuery = newMonthQuery.eq("assigned_agent_id", agentId);
+    sourcesQuery = sourcesQuery.eq("assigned_agent_id", agentId);
+    activeDealsQuery = activeDealsQuery.eq("agent_id", agentId);
+  }
 
   const [
     totalResult,
@@ -58,20 +81,11 @@ export async function getClientStats(): Promise<ClientStats> {
     activeDealsResult,
     sourcesResult,
   ] = await Promise.all([
-    insforge.database.from("clients").select("id", { count: "exact", head: true }),
-    insforge.database
-      .from("clients")
-      .select("id", { count: "exact", head: true })
-      .eq("is_diaspora", true),
-    insforge.database
-      .from("clients")
-      .select("id", { count: "exact", head: true })
-      .gte("created_at", monthStart.toISOString()),
-    insforge.database
-      .from("deals")
-      .select("client_id")
-      .eq("status", "en_cours"),
-    insforge.database.from("clients").select("source"),
+    totalQuery,
+    diasporaQuery,
+    newMonthQuery,
+    activeDealsQuery,
+    sourcesQuery,
   ]);
 
   if (totalResult.error) throw new Error(totalResult.error.message);

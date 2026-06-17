@@ -1,7 +1,8 @@
 "use server";
 
 import { requireSession } from "@/lib/auth";
-import { canManageCatalog } from "@/lib/auth/permissions";
+import { canManageCatalog, canViewAllData } from "@/lib/auth/permissions";
+import { filterLotsForCommercialAgent } from "@/lib/catalog-visibility";
 import { createClient } from "@/lib/insforge/server";
 import { normalizeProperties } from "@/lib/properties";
 import type { Masterplan, Property, PropertyStatus } from "@/types/database";
@@ -10,7 +11,7 @@ import { redirect } from "next/navigation";
 
 export type MasterplanLotSummary = Pick<
   Property,
-  "id" | "status" | "lot_number" | "reference" | "title" | "masterplan_id"
+  "id" | "status" | "lot_number" | "reference" | "title" | "masterplan_id" | "photos"
 >;
 
 export interface MasterplanWithLots {
@@ -19,7 +20,14 @@ export interface MasterplanWithLots {
 }
 
 const LOT_SUMMARY_COLUMNS =
-  "id, status, lot_number, reference, title, masterplan_id";
+  "id, status, lot_number, reference, title, masterplan_id, photos";
+
+function normalizeLotSummaries(lots: MasterplanLotSummary[]): MasterplanLotSummary[] {
+  return lots.map((lot) => ({
+    ...lot,
+    photos: Array.isArray(lot.photos) ? lot.photos : [],
+  }));
+}
 
 export async function getMasterplans(): Promise<Masterplan[]> {
   const insforge = await createClient();
@@ -45,6 +53,7 @@ export async function getMasterplan(id: string): Promise<Masterplan | null> {
 }
 
 export async function getMasterplanLots(masterplanId: string): Promise<Property[]> {
+  const session = await requireSession();
   const insforge = await createClient();
   const { data, error } = await insforge.database
     .from("properties")
@@ -53,11 +62,13 @@ export async function getMasterplanLots(masterplanId: string): Promise<Property[
     .order("lot_number", { ascending: true });
 
   if (error) throw new Error(error.message);
-  return normalizeProperties((data ?? []) as Property[]);
+  const lots = normalizeProperties((data ?? []) as Property[]);
+  return filterLotsForCommercialAgent(lots, session.profile.role);
 }
 
 /** 2 requêtes au lieu de N+1 pour la liste des plans. */
 export async function getMasterplansWithLots(): Promise<MasterplanWithLots[]> {
+  const session = await requireSession();
   const insforge = await createClient();
 
   const [masterplansResult, lotsResult] = await Promise.all([
@@ -76,7 +87,7 @@ export async function getMasterplansWithLots(): Promise<MasterplanWithLots[]> {
   if (lotsResult.error) throw new Error(lotsResult.error.message);
 
   const masterplans = (masterplansResult.data ?? []) as Masterplan[];
-  const lots = (lotsResult.data ?? []) as MasterplanLotSummary[];
+  const lots = normalizeLotSummaries((lotsResult.data ?? []) as MasterplanLotSummary[]);
 
   const lotsByPlan = new Map<string, MasterplanLotSummary[]>();
   for (const lot of lots) {
@@ -88,11 +99,15 @@ export async function getMasterplansWithLots(): Promise<MasterplanWithLots[]> {
 
   return masterplans.map((masterplan) => ({
     masterplan,
-    lots: lotsByPlan.get(masterplan.id) ?? [],
+    lots: filterLotsForCommercialAgent(
+      lotsByPlan.get(masterplan.id) ?? [],
+      session.profile.role
+    ),
   }));
 }
 
 export async function getOverviewLotProperties(): Promise<MasterplanLotSummary[]> {
+  const session = await requireSession();
   const insforge = await createClient();
   const { data, error } = await insforge.database
     .from("properties")
@@ -101,7 +116,8 @@ export async function getOverviewLotProperties(): Promise<MasterplanLotSummary[]
     .limit(200);
 
   if (error) throw new Error(error.message);
-  return (data ?? []) as MasterplanLotSummary[];
+  const lots = normalizeLotSummaries((data ?? []) as MasterplanLotSummary[]);
+  return filterLotsForCommercialAgent(lots, session.profile.role);
 }
 
 export async function getPropertyStatusCounts(): Promise<{
@@ -110,8 +126,13 @@ export async function getPropertyStatusCounts(): Promise<{
   vendus: number;
   total: number;
 }> {
+  const session = await requireSession();
   const insforge = await createClient();
-  const { data, error } = await insforge.database.from("properties").select("status");
+  let query = insforge.database.from("properties").select("status");
+  if (!canViewAllData(session.profile.role)) {
+    query = query.neq("status", "vendu");
+  }
+  const { data, error } = await query;
 
   if (error) throw new Error(error.message);
 

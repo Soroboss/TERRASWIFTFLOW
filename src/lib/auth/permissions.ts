@@ -58,6 +58,11 @@ export function canViewAllData(role: UserRole): boolean {
   return hasPermission(role, "view_all_data");
 }
 
+/** CA et indicateurs financiers au niveau entreprise (owner/manager uniquement). */
+export function canViewCompanyRevenue(role: UserRole): boolean {
+  return canViewAllData(role);
+}
+
 export function canManageCatalog(role: UserRole): boolean {
   return hasPermission(role, "manage_catalog");
 }

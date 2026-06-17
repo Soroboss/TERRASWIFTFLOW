@@ -205,7 +205,7 @@ export async function getDashboardPageData(
       getTodayActivities(agentId ?? undefined),
       getMasterplansWithLots(),
       getPropertyStatusCounts(),
-      getTenantHeadlineCounts(),
+      getTenantHeadlineCounts(agentId),
     ]);
 
   const primaryMasterplan = masterplansWithLots[0] ?? null;

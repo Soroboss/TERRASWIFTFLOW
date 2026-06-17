@@ -46,23 +46,20 @@ export interface DealStatusCounts {
   annule: number;
 }
 
-export async function getDealStatusCounts(): Promise<DealStatusCounts> {
+export async function getDealStatusCounts(agentId?: string | null): Promise<DealStatusCounts> {
   const insforge = await createClient();
 
+  const base = () => {
+    let q = insforge.database.from("deals").select("id", { count: "exact", head: true });
+    if (agentId) q = q.eq("agent_id", agentId);
+    return q;
+  };
+
   const [total, enCours, solde, annule] = await Promise.all([
-    insforge.database.from("deals").select("id", { count: "exact", head: true }),
-    insforge.database
-      .from("deals")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "en_cours"),
-    insforge.database
-      .from("deals")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "solde"),
-    insforge.database
-      .from("deals")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "annule"),
+    base(),
+    base().eq("status", "en_cours"),
+    base().eq("status", "solde"),
+    base().eq("status", "annule"),
   ]);
 
   if (total.error) throw new Error(total.error.message);

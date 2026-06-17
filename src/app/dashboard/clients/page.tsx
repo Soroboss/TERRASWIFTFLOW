@@ -12,7 +12,7 @@ import {
   type ClientListFilters,
 } from "@/lib/actions/clients";
 import { requireSession } from "@/lib/auth";
-import { canViewAllData } from "@/lib/auth/permissions";
+import { canViewAllData, canViewCompanyRevenue } from "@/lib/auth/permissions";
 import { formatPhoneCI } from "@/lib/format";
 import { CLIENT_SOURCE_LABELS, type ClientSource } from "@/types/entities";
 
@@ -32,11 +32,12 @@ export default async function ClientsPage({ searchParams }: PageProps) {
   };
 
   const isManager = canViewAllData(session.profile.role);
+  const showCompanyRevenue = canViewCompanyRevenue(session.profile.role);
   const effectiveAgent = isManager ? filters.agent : session.userId;
 
   const [clients, stats, agents] = await Promise.all([
     getClientsList({ ...filters, agent: effectiveAgent }),
-    getClientStats(),
+    getClientStats(effectiveAgent),
     isManager ? getOrganizationAgents() : Promise.resolve([]),
   ]);
 
@@ -59,7 +60,11 @@ export default async function ClientsPage({ searchParams }: PageProps) {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiStatCard title="Total clients" value={String(stats.total)} icon={Users} />
+        <KpiStatCard
+          title={showCompanyRevenue ? "Total clients" : "Mes clients"}
+          value={String(stats.total)}
+          icon={Users}
+        />
         <KpiStatCard
           title="Diaspora"
           value={String(stats.diaspora)}

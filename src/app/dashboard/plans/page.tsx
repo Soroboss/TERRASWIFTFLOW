@@ -6,12 +6,13 @@ import { LotStatusSummary } from "@/components/dashboard/lot-status-summary";
 import { MasterplanPlanCard } from "@/components/plans/masterplan-plan-card";
 import { getMasterplansWithLots } from "@/lib/actions/masterplans";
 import { requireSession } from "@/lib/auth";
-import { canManageCatalog } from "@/lib/auth/permissions";
+import { canManageCatalog, canViewAllData } from "@/lib/auth/permissions";
 import { countPropertiesByStatus } from "@/lib/property-status";
 
 export default async function PlansPage() {
   const session = await requireSession();
   const canManage = canManageCatalog(session.profile.role);
+  const showSoldLots = canViewAllData(session.profile.role);
   const plansWithLots = await getMasterplansWithLots();
 
   const allLots = plansWithLots.flatMap((p) => p.lots);
@@ -51,6 +52,7 @@ export default async function PlansPage() {
               libres={globalStats.libres}
               reserves={globalStats.reserves}
               vendus={globalStats.vendus}
+              showSold={showSoldLots}
             />
           </CardContent>
         </Card>
@@ -71,7 +73,7 @@ export default async function PlansPage() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
           {plansWithLots.map((plan) => (
-            <MasterplanPlanCard key={plan.masterplan.id} plan={plan} />
+            <MasterplanPlanCard key={plan.masterplan.id} plan={plan} showSoldLots={showSoldLots} />
           ))}
         </div>
       )}

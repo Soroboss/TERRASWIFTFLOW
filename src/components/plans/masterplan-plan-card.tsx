@@ -8,9 +8,10 @@ import { countPropertiesByStatus } from "@/lib/property-status";
 
 interface MasterplanPlanCardProps {
   plan: MasterplanWithLots;
+  showSoldLots?: boolean;
 }
 
-export function MasterplanPlanCard({ plan }: MasterplanPlanCardProps) {
+export function MasterplanPlanCard({ plan, showSoldLots = true }: MasterplanPlanCardProps) {
   const { masterplan, lots } = plan;
   const stats = countPropertiesByStatus(lots);
   const progress =
@@ -54,14 +55,16 @@ export function MasterplanPlanCard({ plan }: MasterplanPlanCardProps) {
             reserves={stats.reserves}
             vendus={stats.vendus}
             compact
+            showSold={showSoldLots}
           />
 
           <MasterplanLotsGrid
             lots={lots}
             totalLots={masterplan.total_lots}
-            columns={8}
+            columns={4}
             maxVisible={48}
             showLegend={false}
+            showSoldInLegend={showSoldLots}
             emptyMessage="Aucun lot pour l'instant."
           />
         </CardContent>

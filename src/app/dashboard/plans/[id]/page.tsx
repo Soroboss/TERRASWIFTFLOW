@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { LotListingCard } from "@/components/dashboard/lot-listing-card";
 import { MasterplanImageUpload } from "@/components/plans/masterplan-image-upload";
-import { statusColorClass } from "@/components/biens/property-status-badge";
 import { LotStatusSummary } from "@/components/dashboard/lot-status-summary";
 import { MasterplanLotsGrid } from "@/components/dashboard/masterplan-lots-grid";
 import { getMasterplan, getMasterplanLots } from "@/lib/actions/masterplans";
 import { requireSession } from "@/lib/auth";
-import { canManageCatalog } from "@/lib/auth/permissions";
+import { canManageCatalog, canViewAllData } from "@/lib/auth/permissions";
 import { getActiveDealsByPropertyIds } from "@/lib/actions/deals";
 import { buildLotHrefMap, dealClientName } from "@/lib/dashboard/overview";
 import { countPropertiesByStatus } from "@/lib/property-status";
@@ -28,6 +28,7 @@ export default async function PlanDetailPage({ params }: PageProps) {
   const { id } = await params;
   const session = await requireSession();
   const canManage = canManageCatalog(session.profile.role);
+  const showSoldLots = canViewAllData(session.profile.role);
   const [masterplan, lots] = await Promise.all([
     getMasterplan(id),
     getMasterplanLots(id),
@@ -49,12 +50,19 @@ export default async function PlanDetailPage({ params }: PageProps) {
         <p className="text-muted-foreground">Plan de masse — vente cash ou échelonnée par lot</p>
       </div>
 
-      <LotStatusSummary libres={libres} reserves={reserves} vendus={vendus} />
+      <LotStatusSummary
+        libres={libres}
+        reserves={reserves}
+        vendus={vendus}
+        showSold={showSoldLots}
+      />
 
       <MasterplanLotsGrid
         lots={lots}
         totalLots={masterplan.total_lots}
+        columns={4}
         getHref={(lot) => lotHrefById.get(lot.id) ?? `/dashboard/biens/${lot.id}`}
+        showSoldInLegend={showSoldLots}
       />
 
       <Card>
@@ -75,7 +83,7 @@ export default async function PlanDetailPage({ params }: PageProps) {
         <CardContent>
           {lots.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              Aucun lot rattaché. Créez des biens terrain et associez-les à ce plan.
+              Aucun lot disponible à afficher.
             </p>
           ) : (
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
@@ -83,27 +91,23 @@ export default async function PlanDetailPage({ params }: PageProps) {
                 const deal = dealsByProperty.get(lot.id);
                 const href = lotHrefById.get(lot.id) ?? `/dashboard/biens/${lot.id}`;
                 return (
-                  <Link
+                  <LotListingCard
                     key={lot.id}
                     href={href}
-                    className="flex items-start gap-3 rounded-lg border p-3 transition-colors hover:bg-accent"
-                  >
-                    <div className={`mt-1 h-4 w-4 shrink-0 rounded-full ${statusColorClass(lot.status)}`} />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-medium">
-                        Lot {lot.lot_number ?? lot.reference}
-                      </p>
-                      <p className="truncate text-xs text-muted-foreground">{lot.title}</p>
-                      <p className="text-xs font-medium">
-                        {STATUS_LABELS[lot.status]} · {formatFCFA(lot.price_total)}
-                      </p>
-                      {deal && (
+                    lotNumber={lot.lot_number}
+                    reference={lot.reference}
+                    status={lot.status}
+                    statusLabel={STATUS_LABELS[lot.status]}
+                    priceLabel={formatFCFA(lot.price_total)}
+                    photos={lot.photos}
+                    footer={
+                      deal ? (
                         <p className="text-xs text-primary">
                           Vente {dealClientName(deal.client) ?? "en cours"} →
                         </p>
-                      )}
-                    </div>
-                  </Link>
+                      ) : undefined
+                    }
+                  />
                 );
               })}
             </div>
