@@ -6,6 +6,10 @@ export type UserRole = "owner" | "manager" | "agent";
 export type PropertyType = "terrain" | "maison";
 export type PropertyStatus = "libre" | "reserve" | "vendu";
 export type DealStatus = "en_cours" | "solde" | "annule";
+export type PaymentMode = "cash" | "echelonne";
+export type ContractType = "acd" | "lettre_villageoise" | "approbation_travaux";
+export type ContractStage = "provisoire" | "definitif";
+export type ScheduleLineType = "acompte" | "mensualite" | "reliquat" | "cash";
 export type PaymentMethod = "wave" | "orange_money" | "mtn" | "especes" | "virement";
 
 export interface Organization {
@@ -85,6 +89,13 @@ export interface Deal {
   agent_id: string;
   total_amount: number;
   status: DealStatus;
+  payment_mode: PaymentMode;
+  contract_type: ContractType;
+  deposit_amount: number | null;
+  balance_amount: number | null;
+  contract_stage: ContractStage;
+  definitive_contract_at: string | null;
+  num_months: number | null;
   signed_at: string | null;
   created_at: string;
 }

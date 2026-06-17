@@ -15,6 +15,7 @@ export interface PaymentSchedule {
   due_date: string;
   amount_due: number;
   label: string;
+  line_type?: import("@/types/database").ScheduleLineType | null;
 }
 
 export interface Payment {

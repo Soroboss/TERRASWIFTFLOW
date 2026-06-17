@@ -117,6 +117,13 @@ CREATE TABLE deals (
   agent_id UUID NOT NULL REFERENCES profiles(id) ON DELETE RESTRICT,
   total_amount NUMERIC(15, 2) NOT NULL,
   status TEXT NOT NULL DEFAULT 'en_cours' CHECK (status IN ('en_cours', 'solde', 'annule')),
+  payment_mode TEXT NOT NULL DEFAULT 'echelonne' CHECK (payment_mode IN ('cash', 'echelonne')),
+  contract_type TEXT NOT NULL DEFAULT 'acd' CHECK (contract_type IN ('acd', 'lettre_villageoise', 'approbation_travaux')),
+  deposit_amount NUMERIC(15, 2),
+  balance_amount NUMERIC(15, 2),
+  contract_stage TEXT NOT NULL DEFAULT 'provisoire' CHECK (contract_stage IN ('provisoire', 'definitif')),
+  definitive_contract_at TIMESTAMPTZ,
+  num_months INTEGER,
   signed_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -130,7 +137,8 @@ CREATE TABLE payment_schedules (
   organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   due_date DATE NOT NULL,
   amount_due NUMERIC(15, 2) NOT NULL,
-  label TEXT NOT NULL
+  label TEXT NOT NULL,
+  line_type TEXT CHECK (line_type IN ('acompte', 'mensualite', 'reliquat', 'cash'))
 );
 
 CREATE INDEX idx_payment_schedules_deal ON payment_schedules(deal_id);

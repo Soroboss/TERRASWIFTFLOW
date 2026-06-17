@@ -80,11 +80,41 @@ export const propertySchema = z.object({
   photos: z.array(z.string()).optional(),
 });
 
-export const createDealSchema = z.object({
-  property_id: uuid,
-  client_id: uuid,
-  total_amount: z.number().positive("Montant total invalide."),
-});
+export const createDealSchema = z
+  .object({
+    property_id: uuid,
+    client_id: uuid,
+    total_amount: z.number().positive("Montant total invalide."),
+    payment_mode: z.enum(["cash", "echelonne"]),
+    contract_type: z.enum(["acd", "lettre_villageoise", "approbation_travaux"]),
+    deposit_amount: z.number().nonnegative().optional(),
+    num_months: z.number().int().min(0).max(120).optional(),
+    first_due_date: z.string().trim().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.payment_mode === "echelonne") {
+      if (data.deposit_amount === undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "L'acompte est requis pour un paiement échelonné.",
+          path: ["deposit_amount"],
+        });
+      } else if (data.deposit_amount >= data.total_amount) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "L'acompte doit être inférieur au montant total.",
+          path: ["deposit_amount"],
+        });
+      }
+      if (!data.first_due_date) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "La date de première échéance est requise.",
+          path: ["first_due_date"],
+        });
+      }
+    }
+  });
 
 export const recordPaymentSchema = z.object({
   deal_id: uuid,

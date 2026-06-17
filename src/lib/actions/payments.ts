@@ -2,6 +2,7 @@
 
 import { requireSession } from "@/lib/auth";
 import { assertDealAccess } from "@/lib/auth/resource-access";
+import { promoteContractStageIfFullyPaid } from "@/lib/actions/deals";
 import { createClient } from "@/lib/insforge/server";
 import { parseInput } from "@/lib/validations/parse";
 import { recordPaymentSchema } from "@/lib/validations/schemas";
@@ -53,6 +54,8 @@ export async function recordPaymentAction(input: {
     .single();
 
   if (error) return { error: error.message };
+
+  await promoteContractStageIfFullyPaid(data.deal_id);
 
   revalidatePath(`/dashboard/deals/${data.deal_id}`);
   revalidatePath("/dashboard/encaissements");

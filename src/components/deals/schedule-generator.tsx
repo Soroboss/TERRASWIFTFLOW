@@ -10,10 +10,17 @@ import { generateScheduleAction } from "@/lib/actions/deals";
 interface ScheduleGeneratorProps {
   dealId: string;
   totalAmount: number;
+  defaultDeposit?: number;
 }
 
-export function ScheduleGenerator({ dealId, totalAmount }: ScheduleGeneratorProps) {
-  const [downPayment, setDownPayment] = useState(String(Math.round(totalAmount * 0.3)));
+export function ScheduleGenerator({
+  dealId,
+  totalAmount,
+  defaultDeposit,
+}: ScheduleGeneratorProps) {
+  const [downPayment, setDownPayment] = useState(
+    String(defaultDeposit ?? Math.round(totalAmount * 0.3))
+  );
   const [numMonths, setNumMonths] = useState("12");
   const [firstDueDate, setFirstDueDate] = useState(
     new Date().toISOString().slice(0, 10)
@@ -62,7 +69,7 @@ export function ScheduleGenerator({ dealId, totalAmount }: ScheduleGeneratorProp
         </div>
 
         <Button onClick={handleGenerate} disabled={loading}>
-          {loading ? "Génération…" : "Générer acompte + mensualités + solde"}
+          {loading ? "Génération…" : "Générer acompte + mensualités + reliquat"}
         </Button>
       </CardContent>
     </Card>

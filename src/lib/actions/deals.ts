@@ -14,10 +14,11 @@ import {
   type PropertyDealCheck,
 } from "@/lib/deals";
 import { generatePaymentSchedule } from "@/lib/schedule";
+import { computeBalanceFromLines } from "@/lib/sales-contract";
 import { createClient } from "@/lib/insforge/server";
 import { parseInput } from "@/lib/validations/parse";
 import { createDealSchema } from "@/lib/validations/schemas";
-import type { Client, Deal, Profile, Property } from "@/types/database";
+import type { Client, Deal, PaymentMode, Profile, Property } from "@/types/database";
 import type {
   DealFinancials,
   DealWithRelations,
@@ -161,7 +162,7 @@ export async function checkPropertyForDeal(
     return {
       blocked: true,
       reason: "Bien introuvable.",
-      deal: { id: "", organization_id: "", property_id: propertyId, client_id: "", agent_id: "", total_amount: 0, status: "en_cours", signed_at: null, created_at: "" },
+      deal: { id: "", organization_id: "", property_id: propertyId, client_id: "", agent_id: "", total_amount: 0, status: "en_cours", payment_mode: "echelonne", contract_type: "acd", deposit_amount: null, balance_amount: null, contract_stage: "provisoire", definitive_contract_at: null, num_months: null, signed_at: null, created_at: "" },
     };
   }
 
@@ -197,10 +198,54 @@ export async function getAvailableProperties(): Promise<Property[]> {
   return (data ?? []) as Property[];
 }
 
+export async function promoteContractStageIfFullyPaid(dealId: string): Promise<void> {
+  const financials = await getDealFinancials(dealId);
+  if (!financials || financials.remaining > 0) return;
+
+  const insforge = await createClient();
+  await insforge.database
+    .from("deals")
+    .update({
+      contract_stage: "definitif",
+      definitive_contract_at: new Date().toISOString(),
+    })
+    .eq("id", dealId)
+    .eq("contract_stage", "provisoire");
+}
+
+async function insertDealScheduleLines(
+  dealId: string,
+  organizationId: string,
+  lines: ReturnType<typeof generatePaymentSchedule>
+) {
+  const insforge = await createClient();
+  await insforge.database.from("payment_schedules").delete().eq("deal_id", dealId);
+
+  if (lines.length === 0) return;
+
+  const { error } = await insforge.database.from("payment_schedules").insert(
+    lines.map((line) => ({
+      deal_id: dealId,
+      organization_id: organizationId,
+      due_date: line.due_date,
+      amount_due: line.amount_due,
+      label: line.label,
+      line_type: line.line_type,
+    }))
+  );
+
+  if (error) throw new Error(error.message);
+}
+
 export async function createDealAction(input: {
   property_id: string;
   client_id: string;
   total_amount: number;
+  payment_mode: PaymentMode;
+  contract_type: "acd" | "lettre_villageoise" | "approbation_travaux";
+  deposit_amount?: number;
+  num_months?: number;
+  first_due_date?: string;
 }) {
   const parsed = parseInput(createDealSchema, input);
   if ("error" in parsed) return { error: parsed.error };
@@ -218,6 +263,30 @@ export async function createDealAction(input: {
   }
 
   const insforge = await createClient();
+  const firstDueDate = data.first_due_date ?? new Date().toISOString().slice(0, 10);
+  const numMonths = data.num_months ?? 12;
+
+  const scheduleLines =
+    data.payment_mode === "cash"
+      ? generatePaymentSchedule({
+          totalAmount: data.total_amount,
+          downPayment: data.total_amount,
+          numMonths: 0,
+          firstDueDate,
+          paymentMode: "cash",
+        })
+      : generatePaymentSchedule({
+          totalAmount: data.total_amount,
+          downPayment: data.deposit_amount ?? 0,
+          numMonths,
+          firstDueDate,
+          paymentMode: "echelonne",
+        });
+
+  const depositAmount =
+    data.payment_mode === "cash" ? data.total_amount : (data.deposit_amount ?? 0);
+  const balanceAmount = computeBalanceFromLines(data.total_amount, depositAmount, scheduleLines);
+
   const { data: deal, error } = await insforge.database
     .from("deals")
     .insert({
@@ -226,6 +295,12 @@ export async function createDealAction(input: {
       client_id: data.client_id,
       agent_id: session.userId,
       total_amount: data.total_amount,
+      payment_mode: data.payment_mode,
+      contract_type: data.contract_type,
+      deposit_amount: depositAmount,
+      balance_amount: balanceAmount,
+      contract_stage: "provisoire",
+      num_months: data.payment_mode === "echelonne" ? numMonths : null,
       status: "en_cours",
       signed_at: new Date().toISOString(),
     })
@@ -237,6 +312,22 @@ export async function createDealAction(input: {
       return { error: "Anti-double-vente : ce bien possède déjà une vente active." };
     }
     return { error: error.message };
+  }
+
+  try {
+    await insertDealScheduleLines(
+      deal.id as string,
+      session.profile.organization_id,
+      scheduleLines
+    );
+  } catch (scheduleError) {
+    await insforge.database.from("deals").delete().eq("id", deal.id);
+    return {
+      error:
+        scheduleError instanceof Error
+          ? scheduleError.message
+          : "Erreur lors de la création de l'échéancier.",
+    };
   }
 
   revalidatePath("/dashboard/deals");
@@ -260,23 +351,33 @@ export async function generateScheduleAction(input: {
     downPayment: input.down_payment,
     numMonths: input.num_months,
     firstDueDate: input.first_due_date,
+    paymentMode: deal.payment_mode ?? "echelonne",
   });
 
   const insforge = await createClient();
 
-  await insforge.database.from("payment_schedules").delete().eq("deal_id", input.deal_id);
+  try {
+    await insertDealScheduleLines(input.deal_id, session.profile.organization_id, lines);
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Erreur échéancier." };
+  }
 
-  const { error } = await insforge.database.from("payment_schedules").insert(
-    lines.map((line) => ({
-      deal_id: input.deal_id,
-      organization_id: session.profile.organization_id,
-      due_date: line.due_date,
-      amount_due: line.amount_due,
-      label: line.label,
-    }))
+  const balanceAmount = computeBalanceFromLines(
+    Number(deal.total_amount),
+    input.down_payment,
+    lines
   );
 
-  if (error) return { error: error.message };
+  const { error: dealUpdateError } = await insforge.database
+    .from("deals")
+    .update({
+      deposit_amount: input.down_payment,
+      balance_amount: balanceAmount,
+      num_months: input.num_months,
+    })
+    .eq("id", input.deal_id);
+
+  if (dealUpdateError) return { error: dealUpdateError.message };
 
   revalidatePath(`/dashboard/deals/${input.deal_id}`);
   return { success: true };
@@ -343,6 +444,8 @@ export async function markDealSoldeAction(dealId: string) {
     .eq("id", dealId);
 
   if (error) return { error: error.message };
+
+  await promoteContractStageIfFullyPaid(dealId);
 
   revalidatePath(`/dashboard/deals/${dealId}`);
   revalidatePath("/dashboard/biens");

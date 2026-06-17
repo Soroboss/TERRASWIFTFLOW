@@ -1,9 +1,11 @@
 import { addMonths, format, parseISO } from "date-fns";
+import type { ScheduleLineType } from "@/types/database";
 
 export interface ScheduleLineInput {
   due_date: string;
   amount_due: number;
   label: string;
+  line_type: ScheduleLineType;
 }
 
 export interface GenerateScheduleParams {
@@ -11,25 +13,27 @@ export interface GenerateScheduleParams {
   downPayment: number;
   numMonths: number;
   firstDueDate: string;
+  paymentMode?: "cash" | "echelonne";
 }
 
 export function generatePaymentSchedule(
   params: GenerateScheduleParams
 ): ScheduleLineInput[] {
-  const { totalAmount, downPayment, numMonths, firstDueDate } = params;
+  const { totalAmount, downPayment, numMonths, firstDueDate, paymentMode } = params;
 
-  if (downPayment >= totalAmount) {
+  if (paymentMode === "cash" || downPayment >= totalAmount) {
     return [
       {
-        label: "Acompte",
+        label: "Paiement comptant",
         amount_due: totalAmount,
         due_date: firstDueDate,
+        line_type: "cash",
       },
     ];
   }
 
   const remaining = totalAmount - downPayment;
-  const monthlyAmount = Math.floor(remaining / (numMonths + 1));
+  const monthlyAmount = numMonths > 0 ? Math.floor(remaining / (numMonths + 1)) : 0;
   const lines: ScheduleLineInput[] = [];
 
   if (downPayment > 0) {
@@ -37,6 +41,7 @@ export function generatePaymentSchedule(
       label: "Acompte",
       amount_due: downPayment,
       due_date: firstDueDate,
+      line_type: "acompte",
     });
   }
 
@@ -46,21 +51,23 @@ export function generatePaymentSchedule(
       label: `Mensualité ${i + 1}/${numMonths}`,
       amount_due: monthlyAmount,
       due_date: format(dueDate, "yyyy-MM-dd"),
+      line_type: "mensualite",
     });
   }
 
   const scheduledTotal = lines.reduce((sum, l) => sum + l.amount_due, 0);
-  const soldeAmount = totalAmount - scheduledTotal;
+  const reliquatAmount = totalAmount - scheduledTotal;
 
-  if (soldeAmount > 0) {
+  if (reliquatAmount > 0) {
     const lastDue = addMonths(
       parseISO(firstDueDate),
       downPayment > 0 ? numMonths + 1 : numMonths
     );
     lines.push({
-      label: "Solde",
-      amount_due: soldeAmount,
+      label: "Reliquat",
+      amount_due: reliquatAmount,
       due_date: format(lastDue, "yyyy-MM-dd"),
+      line_type: "reliquat",
     });
   }
 
