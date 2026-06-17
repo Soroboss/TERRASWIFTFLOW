@@ -6,6 +6,8 @@ import { parseInput } from "@/lib/validations/parse";
 import { recordPaymentSchema } from "@/lib/validations/schemas";
 import type { PaymentMethod } from "@/types/database";
 import type { Payment } from "@/types/entities";
+import { PAYMENT_METHOD_LABELS } from "@/types/entities";
+import { startOfMonth, format } from "date-fns";
 import { revalidatePath } from "next/cache";
 
 export async function recordPaymentAction(input: {
@@ -77,4 +79,99 @@ export async function getPayment(id: string): Promise<Payment | null> {
 
   if (error || !data) return null;
   return data as Payment;
+}
+
+export interface RecentPaymentRow {
+  id: string;
+  amount: number;
+  method: PaymentMethod;
+  paid_at: string;
+  receipt_number: string;
+  deal_id: string;
+  client_name: string;
+  property_title: string;
+}
+
+export interface PaymentMethodBreakdown {
+  method: PaymentMethod;
+  label: string;
+  amount: number;
+}
+
+export async function getRecentPayments(
+  agentId?: string | null,
+  limit = 12
+): Promise<RecentPaymentRow[]> {
+  const insforge = await createClient();
+  const { data, error } = await insforge.database
+    .from("payments")
+    .select(
+      "id, amount, method, paid_at, receipt_number, deal_id, deal:deals(agent_id, client:clients(full_name), property:properties(title))"
+    )
+    .order("paid_at", { ascending: false })
+    .limit(limit * 3);
+
+  if (error) throw new Error(error.message);
+
+  const rows: RecentPaymentRow[] = [];
+
+  for (const row of data ?? []) {
+    const deal = row.deal as
+      | {
+          agent_id?: string;
+          client?: { full_name: string } | null;
+          property?: { title: string } | null;
+        }
+      | null
+      | undefined;
+
+    if (agentId && deal?.agent_id !== agentId) continue;
+
+    rows.push({
+      id: row.id as string,
+      amount: Number(row.amount),
+      method: row.method as PaymentMethod,
+      paid_at: row.paid_at as string,
+      receipt_number: row.receipt_number as string,
+      deal_id: row.deal_id as string,
+      client_name: deal?.client?.full_name ?? "—",
+      property_title: deal?.property?.title ?? "—",
+    });
+
+    if (rows.length >= limit) break;
+  }
+
+  return rows;
+}
+
+export async function getMonthlyPaymentBreakdown(
+  agentId?: string | null
+): Promise<PaymentMethodBreakdown[]> {
+  const insforge = await createClient();
+  const monthStart = format(startOfMonth(new Date()), "yyyy-MM-dd");
+
+  const { data, error } = await insforge.database
+    .from("payments")
+    .select("amount, method, deal:deals(agent_id)")
+    .gte("paid_at", monthStart);
+
+  if (error) throw new Error(error.message);
+
+  const totals = new Map<PaymentMethod, number>();
+
+  for (const row of data ?? []) {
+    const deal = row.deal as { agent_id?: string } | null | undefined;
+    if (agentId && deal?.agent_id !== agentId) continue;
+
+    const method = row.method as PaymentMethod;
+    totals.set(method, (totals.get(method) ?? 0) + Number(row.amount));
+  }
+
+  return [...totals.entries()]
+    .map(([method, amount]) => ({
+      method,
+      label: PAYMENT_METHOD_LABELS[method],
+      amount,
+    }))
+    .sort((a, b) => b.amount - a.amount);
 }

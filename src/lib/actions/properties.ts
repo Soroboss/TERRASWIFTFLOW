@@ -53,15 +53,36 @@ export type PropertyListItem = Pick<
   | "lot_number"
 >;
 
+export interface PropertyListFilters {
+  q?: string;
+  status?: PropertyStatus;
+  type?: PropertyType;
+}
+
 /** Liste légère sans photos — chargement plus rapide. */
-export async function getPropertiesList(): Promise<PropertyListItem[]> {
+export async function getPropertiesList(
+  filters?: PropertyListFilters
+): Promise<PropertyListItem[]> {
   const insforge = await createClient();
-  const { data, error } = await insforge.database
+  let query = insforge.database
     .from("properties")
     .select(
       "id, type, title, reference, status, price_total, surface_m2, location_label, lot_number"
     )
     .order("created_at", { ascending: false });
+
+  if (filters?.status) {
+    query = query.eq("status", filters.status);
+  }
+  if (filters?.type) {
+    query = query.eq("type", filters.type);
+  }
+  if (filters?.q?.trim()) {
+    const term = filters.q.trim();
+    query = query.or(`title.ilike.%${term}%,reference.ilike.%${term}%,lot_number.ilike.%${term}%`);
+  }
+
+  const { data, error } = await query;
 
   if (error) throw new Error(error.message);
 

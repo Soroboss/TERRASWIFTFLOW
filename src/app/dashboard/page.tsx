@@ -5,14 +5,18 @@ import { getOverviewStats } from "@/lib/dashboard/overview";
 import { formatDate, formatFCFA } from "@/lib/format";
 import { formatFcfa, getPlanById } from "@/lib/pricing";
 import { DashboardOverviewPanel } from "@/components/dashboard/dashboard-overview-panel";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { KpiStatCard } from "@/components/dashboard/kpi-stat-card";
+import { QuickActions } from "@/components/dashboard/quick-actions";
+import { PaymentScheduleList } from "@/components/dashboard/payment-schedule-list";
+import { Card, CardContent } from "@/components/ui/card";
 import { ActivityList } from "@/components/activities/activity-list";
 import {
+  AlertTriangle,
   Building2,
   Calendar,
+  Handshake,
   Map as MapIcon,
   Users,
-  Handshake,
   Bell,
 } from "lucide-react";
 
@@ -21,8 +25,15 @@ export default async function DashboardPage() {
   const { organization, profile } = session;
   const agentFilter = profile.role === "agent" ? profile.id : null;
 
-  const { kpis, activities, propertyCounts, primaryMasterplan, overviewLots, lotHrefById } =
-    await getDashboardPageData(agentFilter);
+  const {
+    kpis,
+    activities,
+    propertyCounts,
+    primaryMasterplan,
+    overviewLots,
+    lotHrefById,
+    headlineCounts,
+  } = await getDashboardPageData(agentFilter);
 
   const { libres, reserves, vendus } = getOverviewStats(overviewLots, propertyCounts);
 
@@ -40,11 +51,14 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Tableau de bord</h1>
-        <p className="text-muted-foreground">
-          Vente cash ou échelonnée — {session.profile.full_name}
-        </p>
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Tableau de bord</h1>
+          <p className="text-muted-foreground">
+            {organization.name} — vente cash ou échelonnée
+          </p>
+        </div>
+        <QuickActions />
       </div>
 
       {organization.subscription_status === "trial" && trialDaysLeft !== null && (
@@ -53,7 +67,25 @@ export default async function DashboardPage() {
           {trialDaysLeft > 1 ? "s" : ""}
           {organization.trial_ends_at && <> (expire le {formatDate(organization.trial_ends_at)})</>}
           {" · "}
-          Puis {formatFcfa(planInfo.priceMonthly)} FCFA/mois
+          Puis {formatFcfa(planInfo.priceMonthly)} FCFA/mois —{" "}
+          <Link href="/dashboard/abonnement" className="font-medium underline">
+            gérer l&apos;abonnement
+          </Link>
+        </div>
+      )}
+
+      {kpis.overdue_count > 0 && (
+        <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900">
+          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
+          <div>
+            <p className="font-medium">
+              {kpis.overdue_count} échéance{kpis.overdue_count > 1 ? "s" : ""} en retard (
+              {formatFCFA(kpis.overdue_amount)})
+            </p>
+            <Link href="/dashboard/encaissements" className="underline">
+              Voir les encaissements
+            </Link>
+          </div>
         </div>
       )}
 
@@ -81,75 +113,57 @@ export default async function DashboardPage() {
           <Link href="/dashboard/plans/nouveau" className="text-primary hover:underline">
             Créez un plan de masse
           </Link>{" "}
-          pour afficher vos lots comme sur la présentation commerciale.
+          pour visualiser vos lots en couleur.
         </p>
       )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Link href="/dashboard/encaissements">
-          <Card className="transition-shadow hover:shadow-md">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Encaissé ce mois</CardTitle>
-              <Calendar className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold text-emerald-700">{formatFCFA(kpis.collected_this_month)}</p>
-              {kpis.overdue_count > 0 && (
-                <p className="text-xs text-red-600">{kpis.overdue_count} échéance{kpis.overdue_count > 1 ? "s" : ""} en retard</p>
-              )}
-            </CardContent>
-          </Card>
-        </Link>
-
-        <Link href="/dashboard/biens">
-          <Card className="transition-shadow hover:shadow-md">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Biens</CardTitle>
-              <Building2 className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold">{propertyCounts.total}</p>
-              <p className="text-xs text-muted-foreground">
-                {propertyCounts.libres} libres · {propertyCounts.reserves} réservés · {propertyCounts.vendus} vendus
-              </p>
-            </CardContent>
-          </Card>
-        </Link>
-
-        <Link href="/dashboard/clients">
-          <Card className="transition-shadow hover:shadow-md">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Clients</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold">—</p>
-              <p className="text-xs text-muted-foreground">Gérer les acquéreurs</p>
-            </CardContent>
-          </Card>
-        </Link>
-
-        <Link href="/dashboard/deals">
-          <Card className="transition-shadow hover:shadow-md">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Ventes</CardTitle>
-              <Handshake className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold">—</p>
-              <p className="text-xs text-muted-foreground">Deals & échéanciers</p>
-            </CardContent>
-          </Card>
-        </Link>
+        <KpiStatCard
+          title="Encaissé ce mois"
+          value={formatFCFA(kpis.collected_this_month)}
+          subtitle={
+            kpis.overdue_count > 0
+              ? `${kpis.overdue_count} retard${kpis.overdue_count > 1 ? "s" : ""}`
+              : "Cash & échelonné"
+          }
+          href="/dashboard/encaissements"
+          icon={Calendar}
+          valueClassName="text-emerald-700"
+          alert={kpis.overdue_count > 0}
+        />
+        <KpiStatCard
+          title="Biens"
+          value={String(propertyCounts.total)}
+          subtitle={`${propertyCounts.libres} libres · ${propertyCounts.reserves} rés. · ${propertyCounts.vendus} vendus`}
+          href="/dashboard/biens"
+          icon={Building2}
+        />
+        <KpiStatCard
+          title="Clients"
+          value={String(headlineCounts.clients)}
+          subtitle="Acquéreurs enregistrés"
+          href="/dashboard/clients"
+          icon={Users}
+        />
+        <KpiStatCard
+          title="Ventes actives"
+          value={String(headlineCounts.activeDeals)}
+          subtitle={`${formatFCFA(kpis.total_remaining)} restant`}
+          href="/dashboard/deals"
+          icon={Handshake}
+        />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <div>
           <div className="mb-3 flex items-center justify-between">
             <h2 className="flex items-center gap-2 text-lg font-semibold">
-              <Bell className="h-5 w-5" />À faire aujourd&apos;hui
+              <Bell className="h-5 w-5" />
+              À faire aujourd&apos;hui
             </h2>
-            <Link href="/dashboard/relances" className="text-sm text-primary hover:underline">Voir tout</Link>
+            <Link href="/dashboard/relances" className="text-sm text-primary hover:underline">
+              Voir tout
+            </Link>
           </div>
           <ActivityList activities={activities.slice(0, 5)} />
         </div>
@@ -157,22 +171,19 @@ export default async function DashboardPage() {
         <div>
           <div className="mb-3 flex items-center justify-between">
             <h2 className="flex items-center gap-2 text-lg font-semibold">
-              <MapIcon className="h-5 w-5" />Prochains versements
+              <MapIcon className="h-5 w-5" />
+              Prochains versements
             </h2>
-            <Link href="/dashboard/encaissements" className="text-sm text-primary hover:underline">Encaissements</Link>
+            <Link href="/dashboard/encaissements" className="text-sm text-primary hover:underline">
+              Encaissements
+            </Link>
           </div>
           <Card>
-            <CardContent className="space-y-2 p-4">
-              {kpis.upcoming_payments.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Aucun versement cette semaine.</p>
-              ) : (
-                kpis.upcoming_payments.slice(0, 5).map((s) => (
-                  <Link key={s.schedule_id} href={`/dashboard/deals/${s.deal_id}`} className="block rounded-md border p-2 hover:bg-accent">
-                    <p className="text-sm font-medium">{s.client_name}</p>
-                    <p className="text-xs text-muted-foreground">{formatDate(s.due_date)} · {formatFCFA(s.remaining)}</p>
-                  </Link>
-                ))
-              )}
+            <CardContent className="p-4">
+              <PaymentScheduleList
+                items={kpis.upcoming_payments.slice(0, 5)}
+                emptyMessage="Aucun versement cette semaine."
+              />
             </CardContent>
           </Card>
         </div>

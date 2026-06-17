@@ -3,11 +3,31 @@ import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { PropertyStatusBadge } from "@/components/biens/property-status-badge";
-import { getPropertiesList } from "@/lib/actions/properties";
+import { PropertyFilters } from "@/components/biens/property-filters";
+import { LotStatusSummary } from "@/components/dashboard/lot-status-summary";
+import { getPropertiesList, type PropertyListFilters } from "@/lib/actions/properties";
+import { getPropertyStatusCounts } from "@/lib/actions/masterplans";
 import { formatFCFA } from "@/lib/format";
+import type { PropertyStatus, PropertyType } from "@/types/database";
 
-export default async function BiensPage() {
-  const properties = await getPropertiesList();
+interface PageProps {
+  searchParams: Promise<{ q?: string; status?: string; type?: string }>;
+}
+
+export default async function BiensPage({ searchParams }: PageProps) {
+  const params = await searchParams;
+  const filters: PropertyListFilters = {
+    q: params.q,
+    status: params.status as PropertyStatus | undefined,
+    type: params.type as PropertyType | undefined,
+  };
+
+  const [properties, counts] = await Promise.all([
+    getPropertiesList(filters),
+    getPropertyStatusCounts(),
+  ]);
+
+  const hasFilters = Boolean(params.q || params.status || params.type);
 
   return (
     <div className="space-y-6">
@@ -15,8 +35,7 @@ export default async function BiensPage() {
         <div>
           <h1 className="text-2xl font-bold">Biens immobiliers</h1>
           <p className="text-muted-foreground">
-            {properties.length} bien{properties.length !== 1 ? "s" : ""} enregistré
-            {properties.length !== 1 ? "s" : ""}
+            Terrains et maisons — cash ou paiement échelonné
           </p>
         </div>
         <Button asChild>
@@ -27,13 +46,33 @@ export default async function BiensPage() {
         </Button>
       </div>
 
+      <LotStatusSummary
+        libres={counts.libres}
+        reserves={counts.reserves}
+        vendus={counts.vendus}
+      />
+
+      <PropertyFilters q={params.q} status={params.status} type={params.type} />
+
+      <p className="text-sm text-muted-foreground">
+        {properties.length} bien{properties.length !== 1 ? "s" : ""} affiché
+        {properties.length !== 1 ? "s" : ""}
+        {hasFilters ? " (filtres actifs)" : ` sur ${counts.total}`}
+      </p>
+
       {properties.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-            <p className="text-muted-foreground">Aucun bien enregistré pour le moment.</p>
-            <Button asChild className="mt-4">
-              <Link href="/dashboard/biens/nouveau">Ajouter votre premier bien</Link>
-            </Button>
+            <p className="text-muted-foreground">
+              {hasFilters
+                ? "Aucun bien ne correspond à vos filtres."
+                : "Aucun bien enregistré pour le moment."}
+            </p>
+            {!hasFilters && (
+              <Button asChild className="mt-4">
+                <Link href="/dashboard/biens/nouveau">Ajouter votre premier bien</Link>
+              </Button>
+            )}
           </CardContent>
         </Card>
       ) : (

@@ -1,21 +1,30 @@
-import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AgentFilter } from "@/components/dashboard/agent-filter";
+import { KpiStatCard } from "@/components/dashboard/kpi-stat-card";
+import { PaymentScheduleList } from "@/components/dashboard/payment-schedule-list";
+import { PaymentMethodBreakdownBar } from "@/components/encaissements/payment-method-breakdown";
+import { RecentPaymentsList } from "@/components/encaissements/recent-payments-list";
 import { getDashboardKPIs } from "@/lib/actions/dashboard";
+import { getMonthlyPaymentBreakdown, getRecentPayments } from "@/lib/actions/payments";
 import { getOrganizationAgents } from "@/lib/actions/clients";
 import { requireSession } from "@/lib/auth";
-import { formatFCFA, formatDate } from "@/lib/format";
+import { formatFCFA } from "@/lib/format";
+import { AlertTriangle, Calendar, Clock, Wallet } from "lucide-react";
 
 interface PageProps {
-  searchParams: { agent?: string };
+  searchParams: Promise<{ agent?: string }>;
 }
 
 export default async function EncaissementsPage({ searchParams }: PageProps) {
   const session = await requireSession();
-  const agentId = searchParams.agent ?? null;
-  const [kpis, agents] = await Promise.all([
+  const { agent } = await searchParams;
+  const agentId = agent ?? null;
+
+  const [kpis, agents, recentPayments, methodBreakdown] = await Promise.all([
     getDashboardKPIs(agentId),
     session.profile.role === "agent" ? Promise.resolve([]) : getOrganizationAgents(),
+    getRecentPayments(agentId),
+    getMonthlyPaymentBreakdown(agentId),
   ]);
 
   return (
@@ -23,7 +32,9 @@ export default async function EncaissementsPage({ searchParams }: PageProps) {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold">Encaissements</h1>
-          <p className="text-muted-foreground">Suivi des versements échelonnés</p>
+          <p className="text-muted-foreground">
+            Cash, Wave, Orange Money, MTN MoMo et échéanciers
+          </p>
         </div>
         {session.profile.role !== "agent" && (
           <AgentFilter agents={agents} currentAgentId={agentId ?? undefined} />
@@ -31,56 +42,83 @@ export default async function EncaissementsPage({ searchParams }: PageProps) {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm">Encaissé ce mois</CardTitle></CardHeader>
-          <CardContent><p className="text-2xl font-bold text-emerald-700">{formatFCFA(kpis.collected_this_month)}</p></CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm">Reste à encaisser</CardTitle></CardHeader>
-          <CardContent><p className="text-2xl font-bold">{formatFCFA(kpis.total_remaining)}</p></CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm">Échéances en retard</CardTitle></CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold text-red-600">{kpis.overdue_count}</p>
-            <p className="text-xs text-muted-foreground">{formatFCFA(kpis.overdue_amount)}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm">Prochains 7 jours</CardTitle></CardHeader>
-          <CardContent><p className="text-2xl font-bold">{kpis.upcoming_payments.length}</p></CardContent>
-        </Card>
+        <KpiStatCard
+          title="Encaissé ce mois"
+          value={formatFCFA(kpis.collected_this_month)}
+          icon={Wallet}
+          valueClassName="text-emerald-700"
+        />
+        <KpiStatCard
+          title="Reste à encaisser"
+          value={formatFCFA(kpis.total_remaining)}
+          subtitle="Ventes en cours"
+          icon={Calendar}
+        />
+        <KpiStatCard
+          title="En retard"
+          value={String(kpis.overdue_count)}
+          subtitle={formatFCFA(kpis.overdue_amount)}
+          icon={AlertTriangle}
+          valueClassName="text-red-600"
+          alert={kpis.overdue_count > 0}
+        />
+        <KpiStatCard
+          title="7 prochains jours"
+          value={String(kpis.upcoming_payments.length)}
+          subtitle="Échéances à venir"
+          icon={Clock}
+        />
       </div>
 
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Répartition du mois par mode de paiement</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <PaymentMethodBreakdownBar
+            items={methodBreakdown}
+            total={kpis.collected_this_month}
+          />
+        </CardContent>
+      </Card>
+
       {kpis.overdue_schedules.length > 0 && (
-        <Card>
-          <CardHeader><CardTitle className="text-lg text-red-700">Échéances en retard</CardTitle></CardHeader>
-          <CardContent className="space-y-2">
-            {kpis.overdue_schedules.map((s) => (
-              <Link key={s.schedule_id} href={`/dashboard/deals/${s.deal_id}`} className="block rounded-md border border-red-200 bg-red-50 p-3 hover:bg-red-100">
-                <p className="font-medium">{s.client_name} — {s.property_title}</p>
-                <p className="text-sm text-red-800">{formatDate(s.due_date)} · Reste {formatFCFA(s.remaining)}</p>
-              </Link>
-            ))}
+        <Card className="border-red-200">
+          <CardHeader>
+            <CardTitle className="text-lg text-red-700">Échéances en retard</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <PaymentScheduleList
+              items={kpis.overdue_schedules}
+              variant="overdue"
+              emptyMessage=""
+            />
           </CardContent>
         </Card>
       )}
 
-      <Card>
-        <CardHeader><CardTitle className="text-lg">Prochains versements (7 jours)</CardTitle></CardHeader>
-        <CardContent className="space-y-2">
-          {kpis.upcoming_payments.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Aucun versement attendu cette semaine.</p>
-          ) : (
-            kpis.upcoming_payments.map((s) => (
-              <Link key={s.schedule_id} href={`/dashboard/deals/${s.deal_id}`} className="block rounded-md border p-3 hover:bg-accent">
-                <p className="font-medium">{s.client_name} — {s.property_title}</p>
-                <p className="text-sm text-muted-foreground">{formatDate(s.due_date)} · {formatFCFA(s.remaining)}</p>
-              </Link>
-            ))
-          )}
-        </CardContent>
-      </Card>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Prochains versements (7 jours)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <PaymentScheduleList
+              items={kpis.upcoming_payments}
+              emptyMessage="Aucun versement attendu cette semaine."
+            />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Derniers encaissements</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <RecentPaymentsList payments={recentPayments} />
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

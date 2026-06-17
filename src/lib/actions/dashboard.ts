@@ -3,6 +3,7 @@
 import { buildScheduleWithPayments } from "@/lib/deals";
 import { buildLotHrefMap } from "@/lib/dashboard/overview";
 import { getActiveDealsByPropertyIds } from "@/lib/actions/deals";
+import { getTenantHeadlineCounts } from "@/lib/actions/tenant-summary";
 import { getTodayActivities } from "@/lib/actions/activities";
 import {
   getMasterplansWithLots,
@@ -192,17 +193,20 @@ export interface DashboardPageData {
   primaryMasterplan: MasterplanWithLots | null;
   overviewLots: MasterplanLotSummary[];
   lotHrefById: Map<string, string>;
+  headlineCounts: Awaited<ReturnType<typeof getTenantHeadlineCounts>>;
 }
 
 export async function getDashboardPageData(
   agentId?: string | null
 ): Promise<DashboardPageData> {
-  const [kpis, activities, masterplansWithLots, propertyCounts] = await Promise.all([
-    getDashboardKPIs(agentId),
-    getTodayActivities(agentId ?? undefined),
-    getMasterplansWithLots(),
-    getPropertyStatusCounts(),
-  ]);
+  const [kpis, activities, masterplansWithLots, propertyCounts, headlineCounts] =
+    await Promise.all([
+      getDashboardKPIs(agentId),
+      getTodayActivities(agentId ?? undefined),
+      getMasterplansWithLots(),
+      getPropertyStatusCounts(),
+      getTenantHeadlineCounts(),
+    ]);
 
   const primaryMasterplan = masterplansWithLots[0] ?? null;
   const overviewLots =
@@ -225,6 +229,7 @@ export async function getDashboardPageData(
     primaryMasterplan,
     overviewLots,
     lotHrefById,
+    headlineCounts,
   };
 }
 
