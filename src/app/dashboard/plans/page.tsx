@@ -5,9 +5,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { LotStatusSummary } from "@/components/dashboard/lot-status-summary";
 import { MasterplanPlanCard } from "@/components/plans/masterplan-plan-card";
 import { getMasterplansWithLots } from "@/lib/actions/masterplans";
+import { requireSession } from "@/lib/auth";
+import { canManageCatalog } from "@/lib/auth/permissions";
 import { countPropertiesByStatus } from "@/lib/property-status";
 
 export default async function PlansPage() {
+  const session = await requireSession();
+  const canManage = canManageCatalog(session.profile.role);
   const plansWithLots = await getMasterplansWithLots();
 
   const allLots = plansWithLots.flatMap((p) => p.lots);
@@ -24,12 +28,14 @@ export default async function PlansPage() {
             Vue couleur des lots — libre, réservé, vendu
           </p>
         </div>
-        <Button asChild>
-          <Link href="/dashboard/plans/nouveau">
-            <Plus className="h-4 w-4" />
-            Nouveau plan
-          </Link>
-        </Button>
+        {canManage && (
+          <Button asChild>
+            <Link href="/dashboard/plans/nouveau">
+              <Plus className="h-4 w-4" />
+              Nouveau plan
+            </Link>
+          </Button>
+        )}
       </div>
 
       {plansWithLots.length > 0 && (

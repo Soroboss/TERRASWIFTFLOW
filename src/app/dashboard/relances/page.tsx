@@ -13,6 +13,7 @@ import {
 } from "@/lib/actions/activities";
 import { getOrganizationAgents } from "@/lib/actions/clients";
 import { requireSession } from "@/lib/auth";
+import { canViewAllData } from "@/lib/auth/permissions";
 import type { ActivityType } from "@/types/entities";
 
 const VIEW_LABELS: Record<ActivityView, string> = {
@@ -38,9 +39,8 @@ export default async function RelancesPage({ searchParams }: PageProps) {
     agent: params.agent,
   };
 
-  const isManager = session.profile.role !== "agent";
-  const agentId =
-    session.profile.role === "agent" ? session.userId : (params.agent ?? undefined);
+  const isManager = canViewAllData(session.profile.role);
+  const agentId = isManager ? (params.agent ?? undefined) : session.userId;
 
   const [activities, stats, agents] = await Promise.all([
     getActivitiesList({ ...filters, agent: agentId }),

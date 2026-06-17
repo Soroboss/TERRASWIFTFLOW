@@ -21,45 +21,64 @@ import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { logoutAction } from "@/lib/actions/auth";
+import type { UserRole } from "@/types/database";
 
-const NAV_ITEMS = [
-  { href: "/dashboard", label: "Tableau de bord", icon: LayoutDashboard },
-  { href: "/dashboard/encaissements", label: "Encaissements", icon: Wallet },
-  { href: "/dashboard/biens", label: "Biens", icon: Building2 },
-  { href: "/dashboard/plans", label: "Plans de masse", icon: Map },
-  { href: "/dashboard/clients", label: "Clients", icon: Users },
-  { href: "/dashboard/deals", label: "Ventes", icon: Handshake },
-  { href: "/dashboard/relances", label: "Relances", icon: Bell },
-  { href: "/dashboard/abonnement", label: "Abonnement", icon: CreditCard },
+type NavItem = {
+  href: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+  roles: UserRole[];
+};
+
+const BASE_NAV_ITEMS: NavItem[] = [
+  { href: "/dashboard", label: "Tableau de bord", icon: LayoutDashboard, roles: ["owner", "manager", "agent"] },
+  { href: "/dashboard/encaissements", label: "Encaissements", icon: Wallet, roles: ["owner", "manager", "agent"] },
+  { href: "/dashboard/biens", label: "Biens", icon: Building2, roles: ["owner", "manager", "agent"] },
+  { href: "/dashboard/plans", label: "Plans de masse", icon: Map, roles: ["owner", "manager", "agent"] },
+  { href: "/dashboard/clients", label: "Clients", icon: Users, roles: ["owner", "manager", "agent"] },
+  { href: "/dashboard/deals", label: "Ventes", icon: Handshake, roles: ["owner", "manager", "agent"] },
+  { href: "/dashboard/relances", label: "Relances", icon: Bell, roles: ["owner", "manager", "agent"] },
+  { href: "/dashboard/abonnement", label: "Abonnement", icon: CreditCard, roles: ["owner"] },
+  { href: "/dashboard/equipe", label: "Équipe", icon: UserCog, roles: ["owner", "manager"] },
+  { href: "/dashboard/parametres", label: "Paramètres", icon: Settings, roles: ["owner"] },
 ];
 
 interface DashboardNavProps {
   organizationName: string;
   userName: string;
-  canManageTeam?: boolean;
+  userRole: UserRole;
 }
 
-const TEAM_NAV_ITEM = { href: "/dashboard/equipe", label: "Équipe", icon: UserCog };
-const SETTINGS_NAV_ITEM = { href: "/dashboard/parametres", label: "Paramètres", icon: Settings };
+function navItemsForRole(role: UserRole) {
+  return BASE_NAV_ITEMS.filter((item) => item.roles.includes(role));
+}
 
-export function DashboardNav({ organizationName, userName, canManageTeam }: DashboardNavProps) {
+export function DashboardNav({ organizationName, userName, userRole }: DashboardNavProps) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const navItems = navItemsForRole(userRole);
 
   const handleLogout = async () => {
     await logoutAction();
   };
+
+  const roleHint =
+    userRole === "owner"
+      ? "Propriétaire"
+      : userRole === "manager"
+        ? "Manager"
+        : "Agent commercial";
 
   const navContent = (
     <>
       <div className="mb-8 px-3">
         <p className="text-lg font-bold text-primary">TerraSwiftFlow</p>
         <p className="truncate text-xs text-muted-foreground">{organizationName}</p>
-        <p className="mt-1 text-[10px] text-muted-foreground">Vente cash ou échelonnée</p>
+        <p className="mt-1 text-[10px] text-muted-foreground">{roleHint}</p>
       </div>
 
       <nav className="flex flex-1 flex-col gap-1">
-        {[...NAV_ITEMS, ...(canManageTeam ? [TEAM_NAV_ITEM, SETTINGS_NAV_ITEM] : [])].map(({ href, label, icon: Icon }) => (
+        {navItems.map(({ href, label, icon: Icon }) => (
           <Link
             key={href}
             href={href}

@@ -2,6 +2,12 @@
 
 import { requireSession } from "@/lib/auth";
 import {
+  assignableTeamRoles,
+  canEditTeamMember,
+  canRemoveTeamMember,
+} from "@/lib/auth/access";
+import { canManageTeam } from "@/lib/auth/permissions";
+import {
   isPlatformStaffUser,
   provisionAuthUserForInvite,
 } from "@/lib/auth/insforge-admin-users";
@@ -13,10 +19,6 @@ import type { Profile, UserRole } from "@/types/database";
 import { revalidatePath } from "next/cache";
 
 const STARTER_AGENT_LIMIT = 3;
-
-function canManageOrganizationTeam(role: UserRole): boolean {
-  return role === "owner" || role === "manager";
-}
 
 export async function getOrganizationTeam(): Promise<Profile[]> {
   const session = await requireSession();
@@ -61,12 +63,22 @@ export async function addOrganizationTeamMemberAction(
   phone?: string
 ) {
   const session = await requireSession();
-  if (!canManageOrganizationTeam(session.profile.role)) {
+  if (!canManageTeam(session.profile.role)) {
     return { error: "Seuls le propriétaire et les managers peuvent gérer l'équipe." };
   }
 
   if (role === "owner") {
     return { error: "Un collaborateur ne peut pas être créé avec le rôle propriétaire." };
+  }
+
+  const allowedRoles = assignableTeamRoles(session.profile.role);
+  if (!allowedRoles.includes(role)) {
+    return {
+      error:
+        session.profile.role === "manager"
+          ? "En tant que manager, vous pouvez uniquement ajouter des agents commerciaux."
+          : "Rôle non autorisé.",
+    };
   }
 
   const parsed = parseInput(tenantTeamMemberSchema, {
@@ -160,7 +172,7 @@ export async function updateOrganizationTeamMemberAction(
   }
 ) {
   const session = await requireSession();
-  if (!canManageOrganizationTeam(session.profile.role)) {
+  if (!canManageTeam(session.profile.role)) {
     return { error: "Droits insuffisants." };
   }
 
@@ -181,6 +193,22 @@ export async function updateOrganizationTeamMemberAction(
 
   if (!member || member.organization_id !== session.profile.organization_id) {
     return { error: "Collaborateur introuvable." };
+  }
+
+  const memberRole = member.role as UserRole;
+  const isSelf = userId === session.userId;
+
+  if (!canEditTeamMember(session.profile.role, memberRole, isSelf)) {
+    return { error: "Vous ne pouvez pas modifier ce collaborateur." };
+  }
+
+  if (input.role && !assignableTeamRoles(session.profile.role).includes(input.role)) {
+    return {
+      error:
+        session.profile.role === "manager"
+          ? "Un manager ne peut attribuer que le rôle agent commercial."
+          : "Rôle non autorisé.",
+    };
   }
 
   if (member.role === "owner" && input.role) {
@@ -215,7 +243,7 @@ export async function updateOrganizationTeamMemberAction(
 
 export async function removeOrganizationTeamMemberAction(userId: string) {
   const session = await requireSession();
-  if (!canManageOrganizationTeam(session.profile.role)) {
+  if (!canManageTeam(session.profile.role)) {
     return { error: "Droits insuffisants." };
   }
 
@@ -232,6 +260,11 @@ export async function removeOrganizationTeamMemberAction(userId: string) {
 
   if (!member || member.organization_id !== session.profile.organization_id) {
     return { error: "Collaborateur introuvable." };
+  }
+
+  const memberRole = member.role as UserRole;
+  if (!canRemoveTeamMember(session.profile.role, memberRole, userId === session.userId)) {
+    return { error: "Vous ne pouvez pas retirer ce collaborateur." };
   }
 
   if (member.role === "owner") {

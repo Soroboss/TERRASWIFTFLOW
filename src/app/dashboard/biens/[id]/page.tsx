@@ -7,6 +7,8 @@ import { DeletePropertyButton } from "@/components/biens/delete-property-button"
 import { PropertyStatusBadge } from "@/components/biens/property-status-badge";
 import { PropertyPhotoUpload } from "@/components/biens/property-photo-upload";
 import { getProperty } from "@/lib/actions/properties";
+import { requireSession } from "@/lib/auth";
+import { canDeleteCatalog, canManageCatalog } from "@/lib/auth/permissions";
 import { formatFCFA, formatDate } from "@/lib/format";
 
 interface PageProps {
@@ -15,6 +17,9 @@ interface PageProps {
 
 export default async function BienDetailPage({ params }: PageProps) {
   const { id } = await params;
+  const session = await requireSession();
+  const canManage = canManageCatalog(session.profile.role);
+  const canDelete = canDeleteCatalog(session.profile.role);
   const property = await getProperty(id);
   if (!property) notFound();
 
@@ -31,15 +36,17 @@ export default async function BienDetailPage({ params }: PageProps) {
           <h1 className="text-2xl font-bold">{property.title}</h1>
           <p className="text-muted-foreground">Réf. {property.reference}</p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" asChild>
-            <Link href={`/dashboard/biens/${id}/modifier`}>
-              <Pencil className="h-4 w-4" />
-              Modifier
-            </Link>
-          </Button>
-          <DeletePropertyButton propertyId={id} />
-        </div>
+        {canManage && (
+          <div className="flex gap-2">
+            <Button variant="outline" asChild>
+              <Link href={`/dashboard/biens/${id}/modifier`}>
+                <Pencil className="h-4 w-4" />
+                Modifier
+              </Link>
+            </Button>
+            {canDelete && <DeletePropertyButton propertyId={id} />}
+          </div>
+        )}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -100,7 +107,9 @@ export default async function BienDetailPage({ params }: PageProps) {
             <CardTitle className="text-lg">Photos</CardTitle>
           </CardHeader>
           <CardContent>
-            <PropertyPhotoUpload propertyId={property.id} photos={property.photos} />
+            {canManage && (
+              <PropertyPhotoUpload propertyId={property.id} photos={property.photos} />
+            )}
           </CardContent>
         </Card>
       </div>

@@ -15,6 +15,7 @@ import {
 } from "@/lib/actions/deals";
 import { getOrganizationAgents } from "@/lib/actions/clients";
 import { requireSession } from "@/lib/auth";
+import { canViewAllData } from "@/lib/auth/permissions";
 import { formatFCFA, formatDate } from "@/lib/format";
 import type { Deal } from "@/types/database";
 
@@ -38,9 +39,8 @@ export default async function DealsPage({ searchParams }: PageProps) {
     agent: params.agent,
   };
 
-  const isManager = session.profile.role !== "agent";
-  const agentId =
-    session.profile.role === "agent" ? session.userId : (params.agent ?? null);
+  const isManager = canViewAllData(session.profile.role);
+  const agentId = isManager ? (params.agent ?? null) : session.userId;
 
   const [deals, counts, kpis, agents] = await Promise.all([
     getDealsList({ ...filters, agent: agentId ?? filters.agent }),

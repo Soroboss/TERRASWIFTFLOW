@@ -1,7 +1,11 @@
 import { PropertyForm } from "@/components/biens/property-form";
 import { getMasterplans } from "@/lib/actions/masterplans";
+import { requireSession } from "@/lib/auth";
+import { requireManagerOrOwner } from "@/lib/auth/access";
 
 export default async function NouveauBienPage() {
+  const session = await requireSession();
+  requireManagerOrOwner(session, "/dashboard/biens");
   const masterplans = await getMasterplans();
 
   return (

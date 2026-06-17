@@ -6,6 +6,8 @@ import { statusColorClass } from "@/components/biens/property-status-badge";
 import { LotStatusSummary } from "@/components/dashboard/lot-status-summary";
 import { MasterplanLotsGrid } from "@/components/dashboard/masterplan-lots-grid";
 import { getMasterplan, getMasterplanLots } from "@/lib/actions/masterplans";
+import { requireSession } from "@/lib/auth";
+import { canManageCatalog } from "@/lib/auth/permissions";
 import { getActiveDealsByPropertyIds } from "@/lib/actions/deals";
 import { buildLotHrefMap, dealClientName } from "@/lib/dashboard/overview";
 import { countPropertiesByStatus } from "@/lib/property-status";
@@ -24,6 +26,8 @@ interface PageProps {
 
 export default async function PlanDetailPage({ params }: PageProps) {
   const { id } = await params;
+  const session = await requireSession();
+  const canManage = canManageCatalog(session.profile.role);
   const [masterplan, lots] = await Promise.all([
     getMasterplan(id),
     getMasterplanLots(id),
@@ -58,7 +62,9 @@ export default async function PlanDetailPage({ params }: PageProps) {
           <CardTitle className="text-lg">Image du plan de masse</CardTitle>
         </CardHeader>
         <CardContent>
-          <MasterplanImageUpload masterplanId={masterplan.id} imageUrl={masterplan.image_url} />
+          {canManage && (
+            <MasterplanImageUpload masterplanId={masterplan.id} imageUrl={masterplan.image_url} />
+          )}
         </CardContent>
       </Card>
 

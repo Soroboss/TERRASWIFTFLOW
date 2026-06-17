@@ -1,6 +1,12 @@
 "use server";
 
 import { requireSession } from "@/lib/auth";
+import {
+  canDeleteClients,
+  canManageClients,
+  getAgentScopeId,
+} from "@/lib/auth/permissions";
+import { assertClientAccess } from "@/lib/auth/resource-access";
 import { normalizePhoneCI } from "@/lib/format";
 import { createClient } from "@/lib/insforge/server";
 import { parseInput } from "@/lib/validations/parse";
@@ -94,6 +100,8 @@ export async function getClientStats(): Promise<ClientStats> {
 }
 
 export async function getClientsList(filters?: ClientListFilters): Promise<Client[]> {
+  const session = await requireSession();
+  const scopeId = getAgentScopeId(session);
   const insforge = await createClient();
   let query = insforge.database.from("clients").select("*").order("created_at", { ascending: false });
 
@@ -106,8 +114,9 @@ export async function getClientsList(filters?: ClientListFilters): Promise<Clien
   if (filters?.diaspora === "non") {
     query = query.eq("is_diaspora", false);
   }
-  if (filters?.agent) {
-    query = query.eq("assigned_agent_id", filters.agent);
+  const agentFilter = scopeId ?? filters?.agent;
+  if (agentFilter) {
+    query = query.eq("assigned_agent_id", agentFilter);
   }
   if (filters?.q?.trim()) {
     const term = filters.q.trim();
@@ -120,6 +129,10 @@ export async function getClientsList(filters?: ClientListFilters): Promise<Clien
 }
 
 export async function getClient(id: string): Promise<Client | null> {
+  const session = await requireSession();
+  const access = await assertClientAccess(session, id);
+  if (access.error) return null;
+
   const insforge = await createClient();
   const { data, error } = await insforge.database
     .from("clients")
@@ -148,6 +161,9 @@ export async function createClientAction(input: ClientInput) {
   if ("error" in parsed) return { error: parsed.error };
 
   const session = await requireSession();
+  if (!canManageClients(session.profile.role)) {
+    return { error: "Droits insuffisants pour créer un client." };
+  }
   const insforge = await createClient();
   const data = parsed.data;
 
@@ -177,7 +193,13 @@ export async function updateClientAction(id: string, input: ClientInput) {
   const parsed = parseInput(clientSchema, input);
   if ("error" in parsed) return { error: parsed.error };
 
-  await requireSession();
+  const session = await requireSession();
+  if (!canManageClients(session.profile.role)) {
+    return { error: "Droits insuffisants." };
+  }
+
+  const access = await assertClientAccess(session, id);
+  if (access.error) return { error: access.error };
   const insforge = await createClient();
   const data = parsed.data;
 
@@ -202,7 +224,11 @@ export async function updateClientAction(id: string, input: ClientInput) {
 }
 
 export async function deleteClientAction(id: string) {
-  await requireSession();
+  const session = await requireSession();
+  if (!canDeleteClients(session.profile.role)) {
+    return { error: "Seuls le propriétaire et les managers peuvent supprimer un client." };
+  }
+
   const insforge = await createClient();
 
   const { error } = await insforge.database.from("clients").delete().eq("id", id);

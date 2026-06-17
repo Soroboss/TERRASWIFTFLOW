@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Plus, Users, UserCheck, UserCog, Shield } from "lucide-react";
 import { getOrganizationTeam, getOrganizationTeamStats } from "@/lib/actions/team";
 import { requireSession } from "@/lib/auth";
+import { requireManagerOrOwner } from "@/lib/auth/access";
 import { getMaxAgentsForPlan } from "@/lib/pricing";
 import { AddOrganizationMemberForm } from "@/components/dashboard/add-organization-member-form";
 import { OrganizationTeamMemberRow } from "@/components/dashboard/organization-team-member-row";
@@ -13,11 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default async function OrganizationTeamPage() {
   const session = await requireSession();
-  const canManage = session.profile.role === "owner" || session.profile.role === "manager";
-
-  if (!canManage) {
-    redirect("/dashboard");
-  }
+  requireManagerOrOwner(session);
 
   const [team, stats] = await Promise.all([
     getOrganizationTeam(),
@@ -105,6 +102,7 @@ export default async function OrganizationTeamPage() {
                   key={member.id}
                   member={member}
                   currentUserId={session.userId}
+                  actorRole={session.profile.role}
                 />
               ))}
             </ul>
@@ -120,7 +118,7 @@ export default async function OrganizationTeamPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <AddOrganizationMemberForm disabled={atLimit} />
+          <AddOrganizationMemberForm disabled={atLimit} actorRole={session.profile.role} />
         </CardContent>
       </Card>
     </div>

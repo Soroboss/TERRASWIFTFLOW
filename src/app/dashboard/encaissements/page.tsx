@@ -8,6 +8,7 @@ import { getDashboardKPIs } from "@/lib/actions/dashboard";
 import { getMonthlyPaymentBreakdown, getRecentPayments } from "@/lib/actions/payments";
 import { getOrganizationAgents } from "@/lib/actions/clients";
 import { requireSession } from "@/lib/auth";
+import { canViewAllData, getAgentScopeId } from "@/lib/auth/permissions";
 import { formatFCFA } from "@/lib/format";
 import { AlertTriangle, Calendar, Clock, Wallet } from "lucide-react";
 
@@ -18,11 +19,11 @@ interface PageProps {
 export default async function EncaissementsPage({ searchParams }: PageProps) {
   const session = await requireSession();
   const { agent } = await searchParams;
-  const agentId = agent ?? null;
+  const agentId = getAgentScopeId(session) ?? agent ?? null;
 
   const [kpis, agents, recentPayments, methodBreakdown] = await Promise.all([
     getDashboardKPIs(agentId),
-    session.profile.role === "agent" ? Promise.resolve([]) : getOrganizationAgents(),
+    canViewAllData(session.profile.role) ? getOrganizationAgents() : Promise.resolve([]),
     getRecentPayments(agentId),
     getMonthlyPaymentBreakdown(agentId),
   ]);
@@ -36,7 +37,7 @@ export default async function EncaissementsPage({ searchParams }: PageProps) {
             Cash, Wave, Orange Money, MTN MoMo et échéanciers
           </p>
         </div>
-        {session.profile.role !== "agent" && (
+        {canViewAllData(session.profile.role) && (
           <AgentFilter
             agents={agents}
             currentAgentId={agentId ?? undefined}

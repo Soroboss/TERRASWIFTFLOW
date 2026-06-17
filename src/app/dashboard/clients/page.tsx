@@ -12,6 +12,7 @@ import {
   type ClientListFilters,
 } from "@/lib/actions/clients";
 import { requireSession } from "@/lib/auth";
+import { canViewAllData } from "@/lib/auth/permissions";
 import { formatPhoneCI } from "@/lib/format";
 import { CLIENT_SOURCE_LABELS, type ClientSource } from "@/types/entities";
 
@@ -30,9 +31,8 @@ export default async function ClientsPage({ searchParams }: PageProps) {
     agent: params.agent,
   };
 
-  const isManager = session.profile.role !== "agent";
-  const effectiveAgent =
-    session.profile.role === "agent" ? session.userId : filters.agent;
+  const isManager = canViewAllData(session.profile.role);
+  const effectiveAgent = isManager ? filters.agent : session.userId;
 
   const [clients, stats, agents] = await Promise.all([
     getClientsList({ ...filters, agent: effectiveAgent }),

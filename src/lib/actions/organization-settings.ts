@@ -1,20 +1,17 @@
 "use server";
 
 import { requireSession } from "@/lib/auth";
+import { canManageOrganizationSettings } from "@/lib/auth/permissions";
 import { normalizePhoneCI } from "@/lib/format";
 import { createClient } from "@/lib/insforge/server";
 import { parseInput } from "@/lib/validations/parse";
 import { organizationSettingsSchema } from "@/lib/validations/schemas";
-import type { Organization, UserRole } from "@/types/database";
+import type { Organization } from "@/types/database";
 import {
   parseCompanyProfile,
   type CompanyProfile,
 } from "@/types/organization-profile";
 import { revalidatePath } from "next/cache";
-
-function canManageOrganizationSettings(role: UserRole): boolean {
-  return role === "owner" || role === "manager";
-}
 
 export interface OrganizationSettings {
   organization: Organization;

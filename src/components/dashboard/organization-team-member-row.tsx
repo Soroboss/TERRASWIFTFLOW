@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { assignableTeamRoles, canEditTeamMember, canRemoveTeamMember } from "@/lib/auth/access";
 import {
   removeOrganizationTeamMemberAction,
   updateOrganizationTeamMemberAction,
@@ -22,11 +23,13 @@ const ROLE_LABELS = {
 interface OrganizationTeamMemberRowProps {
   member: Profile;
   currentUserId: string;
+  actorRole: UserRole;
 }
 
 export function OrganizationTeamMemberRow({
   member,
   currentUserId,
+  actorRole,
 }: OrganizationTeamMemberRowProps) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -39,6 +42,9 @@ export function OrganizationTeamMemberRow({
 
   const isSelf = member.id === currentUserId;
   const isOwner = member.role === "owner";
+  const canEdit = canEditTeamMember(actorRole, member.role, isSelf);
+  const canRemove = canRemoveTeamMember(actorRole, member.role, isSelf);
+  const assignableRoles = assignableTeamRoles(actorRole);
 
   const handleSave = async () => {
     setLoading(true);
@@ -92,12 +98,12 @@ export function OrganizationTeamMemberRow({
           </div>
         </div>
 
-        {!editing && (
+        {!editing && canEdit && (
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={() => setEditing(true)} disabled={loading}>
               Modifier
             </Button>
-            {!isSelf && !isOwner && (
+            {canRemove && (
               <Button variant="destructive" size="sm" onClick={handleRemove} disabled={loading}>
                 Retirer
               </Button>
@@ -129,7 +135,7 @@ export function OrganizationTeamMemberRow({
               />
             </div>
           </div>
-          {!isOwner && (
+          {!isOwner && assignableRoles.length > 0 && (
             <div className="space-y-2">
               <Label htmlFor={`org-role-${member.id}`}>Rôle</Label>
               <select
@@ -139,8 +145,10 @@ export function OrganizationTeamMemberRow({
                 onChange={(e) => setRole(e.target.value as UserRole)}
                 disabled={isSelf}
               >
+                {assignableRoles.includes("manager") && (
+                  <option value="manager">Manager</option>
+                )}
                 <option value="agent">Agent commercial</option>
-                <option value="manager">Manager</option>
               </select>
             </div>
           )}

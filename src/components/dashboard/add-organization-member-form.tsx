@@ -6,15 +6,23 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { addOrganizationTeamMemberAction } from "@/lib/actions/team";
+import { assignableTeamRoles } from "@/lib/auth/access";
 import type { UserRole } from "@/types/database";
 
-export function AddOrganizationMemberForm({ disabled = false }: { disabled?: boolean }) {
+export function AddOrganizationMemberForm({
+  disabled = false,
+  actorRole,
+}: {
+  disabled?: boolean;
+  actorRole: UserRole;
+}) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<UserRole>("agent");
+  const assignableRoles = assignableTeamRoles(actorRole);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -97,8 +105,10 @@ export function AddOrganizationMemberForm({ disabled = false }: { disabled?: boo
           value={role}
           onChange={(e) => setRole(e.target.value as UserRole)}
         >
+          {assignableRoles.includes("manager") && (
+            <option value="manager">Manager</option>
+          )}
           <option value="agent">Agent commercial</option>
-          <option value="manager">Manager</option>
         </select>
       </div>
       <Button onClick={handleSubmit} disabled={loading || disabled || !email || !fullName}>

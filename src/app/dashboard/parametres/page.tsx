@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { Settings } from "lucide-react";
 import { OrganizationSettingsForm } from "@/components/settings/organization-settings-form";
 import { KpiStatCard } from "@/components/dashboard/kpi-stat-card";
@@ -7,16 +6,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { getOrganizationSettings } from "@/lib/actions/organization-settings";
 import { requireSession } from "@/lib/auth";
+import { requireOwner } from "@/lib/auth/access";
 import { formatPhoneCI } from "@/lib/format";
 
 export default async function ParametresPage() {
   const session = await requireSession();
-  const canManage =
-    session.profile.role === "owner" || session.profile.role === "manager";
-
-  if (!canManage) {
-    redirect("/dashboard");
-  }
+  requireOwner(session);
 
   const { organization, profile } = await getOrganizationSettings();
   const filledFields = [

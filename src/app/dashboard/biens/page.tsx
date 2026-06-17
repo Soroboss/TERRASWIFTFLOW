@@ -7,6 +7,8 @@ import { PropertyFilters } from "@/components/biens/property-filters";
 import { LotStatusSummary } from "@/components/dashboard/lot-status-summary";
 import { getPropertiesList, type PropertyListFilters } from "@/lib/actions/properties";
 import { getPropertyStatusCounts } from "@/lib/actions/masterplans";
+import { requireSession } from "@/lib/auth";
+import { canManageCatalog } from "@/lib/auth/permissions";
 import { formatFCFA } from "@/lib/format";
 import type { PropertyStatus, PropertyType } from "@/types/database";
 
@@ -15,6 +17,8 @@ interface PageProps {
 }
 
 export default async function BiensPage({ searchParams }: PageProps) {
+  const session = await requireSession();
+  const canManage = canManageCatalog(session.profile.role);
   const params = await searchParams;
   const filters: PropertyListFilters = {
     q: params.q,
@@ -38,12 +42,14 @@ export default async function BiensPage({ searchParams }: PageProps) {
             Terrains et maisons — cash ou paiement échelonné
           </p>
         </div>
-        <Button asChild>
-          <Link href="/dashboard/biens/nouveau">
-            <Plus className="h-4 w-4" />
-            Nouveau bien
-          </Link>
-        </Button>
+        {canManage && (
+          <Button asChild>
+            <Link href="/dashboard/biens/nouveau">
+              <Plus className="h-4 w-4" />
+              Nouveau bien
+            </Link>
+          </Button>
+        )}
       </div>
 
       <LotStatusSummary

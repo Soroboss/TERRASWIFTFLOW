@@ -8,6 +8,8 @@ import { DealScheduleTable } from "@/components/deals/deal-schedule-table";
 import { ScheduleGenerator } from "@/components/deals/schedule-generator";
 import { DealActions } from "@/components/deals/deal-actions";
 import { getDeal, getDealFinancials } from "@/lib/actions/deals";
+import { requireSession } from "@/lib/auth";
+import { canCancelDeals } from "@/lib/auth/permissions";
 import { formatFCFA, formatDate, formatPhoneCI } from "@/lib/format";
 
 interface PageProps {
@@ -16,6 +18,8 @@ interface PageProps {
 
 export default async function DealDetailPage({ params }: PageProps) {
   const { id } = await params;
+  const session = await requireSession();
+  const canManageDeal = canCancelDeals(session.profile.role);
   const [deal, financials] = await Promise.all([
     getDeal(id),
     getDealFinancials(id),
@@ -41,7 +45,9 @@ export default async function DealDetailPage({ params }: PageProps) {
               <FileText className="h-4 w-4" />Contrat PDF
             </Link>
           </Button>
-          <DealActions dealId={deal.id} status={deal.status} remaining={financials.remaining} />
+          {canManageDeal && (
+            <DealActions dealId={deal.id} status={deal.status} remaining={financials.remaining} />
+          )}
         </div>
       </div>
 

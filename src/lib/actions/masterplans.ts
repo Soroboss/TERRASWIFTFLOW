@@ -1,6 +1,7 @@
 "use server";
 
 import { requireSession } from "@/lib/auth";
+import { canManageCatalog } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/insforge/server";
 import { normalizeProperties } from "@/lib/properties";
 import type { Masterplan, Property, PropertyStatus } from "@/types/database";
@@ -125,6 +126,10 @@ export async function getPropertyStatusCounts(): Promise<{
 
 export async function createMasterplanAction(name: string, totalLots: number) {
   const session = await requireSession();
+  if (!canManageCatalog(session.profile.role)) {
+    return { error: "Seuls le propriétaire et les managers peuvent créer un plan de masse." };
+  }
+
   const insforge = await createClient();
 
   const { data, error } = await insforge.database
@@ -145,6 +150,10 @@ export async function createMasterplanAction(name: string, totalLots: number) {
 
 export async function uploadMasterplanImageAction(formData: FormData) {
   const session = await requireSession();
+  if (!canManageCatalog(session.profile.role)) {
+    return { error: "Droits insuffisants." };
+  }
+
   const insforge = await createClient();
   const file = formData.get("file") as File | null;
   const masterplanId = formData.get("masterplanId") as string | null;

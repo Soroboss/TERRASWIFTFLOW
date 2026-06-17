@@ -5,6 +5,8 @@ import { createClient } from "@/lib/insforge/server";
 import { parseInput } from "@/lib/validations/parse";
 import { activitySchema } from "@/lib/validations/schemas";
 import type { Activity, ActivityType } from "@/types/entities";
+import { getAgentScopeId } from "@/lib/auth/permissions";
+import { assertClientAccess } from "@/lib/auth/resource-access";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -35,6 +37,9 @@ function todayBounds() {
 }
 
 export async function getActivityStats(agentId?: string): Promise<ActivityStats> {
+  const session = await requireSession();
+  const scopeId = getAgentScopeId(session);
+  const effectiveAgentId = scopeId ?? agentId;
   const insforge = await createClient();
   const { todayStart, todayEnd } = todayBounds();
   const monthStart = new Date();
@@ -73,13 +78,13 @@ export async function getActivityStats(agentId?: string): Promise<ActivityStats>
     .eq("done", false)
     .lte("due_at", todayEnd);
 
-  if (agentId) {
-    pendingQ = pendingQ.eq("agent_id", agentId);
-    overdueQ = overdueQ.eq("agent_id", agentId);
-    todayQ = todayQ.eq("agent_id", agentId);
-    upcomingQ = upcomingQ.eq("agent_id", agentId);
-    doneMonthQ = doneMonthQ.eq("agent_id", agentId);
-    pendingRowsQ = pendingRowsQ.eq("agent_id", agentId);
+  if (effectiveAgentId) {
+    pendingQ = pendingQ.eq("agent_id", effectiveAgentId);
+    overdueQ = overdueQ.eq("agent_id", effectiveAgentId);
+    todayQ = todayQ.eq("agent_id", effectiveAgentId);
+    upcomingQ = upcomingQ.eq("agent_id", effectiveAgentId);
+    doneMonthQ = doneMonthQ.eq("agent_id", effectiveAgentId);
+    pendingRowsQ = pendingRowsQ.eq("agent_id", effectiveAgentId);
   }
 
   const [pending, overdue, todayCount, upcoming, doneMonth, pendingRows] = await Promise.all([
@@ -115,6 +120,8 @@ export async function getActivityStats(agentId?: string): Promise<ActivityStats>
 }
 
 export async function getActivitiesList(filters?: ActivityListFilters): Promise<Activity[]> {
+  const session = await requireSession();
+  const scopeId = getAgentScopeId(session);
   const insforge = await createClient();
   const view = filters?.view ?? "pending";
   const { today, todayStart, todayEnd } = todayBounds();
@@ -124,11 +131,13 @@ export async function getActivitiesList(filters?: ActivityListFilters): Promise<
     .select("*, client:clients(full_name, id)")
     .order("due_at", { ascending: view === "done" ? false : true });
 
+  const agentFilter = scopeId ?? filters?.agent;
+  if (agentFilter) {
+    query = query.eq("agent_id", agentFilter);
+  }
+
   if (filters?.type) {
     query = query.eq("type", filters.type);
-  }
-  if (filters?.agent) {
-    query = query.eq("agent_id", filters.agent);
   }
 
   switch (view) {
@@ -215,8 +224,21 @@ export async function createActivityAction(input: {
 }
 
 export async function toggleActivityDoneAction(id: string, done: boolean) {
-  await requireSession();
+  const session = await requireSession();
   const insforge = await createClient();
+
+  const { data: activity } = await insforge.database
+    .from("activities")
+    .select("agent_id, client_id")
+    .eq("id", id)
+    .single();
+
+  if (!activity) return { error: "Relance introuvable." };
+
+  const scopeId = getAgentScopeId(session);
+  if (scopeId && activity.agent_id !== scopeId) {
+    return { error: "Accès refusé." };
+  }
 
   const { error } = await insforge.database.from("activities").update({ done }).eq("id", id);
   if (error) return { error: error.message };

@@ -1,6 +1,7 @@
 "use server";
 
 import { requireSession } from "@/lib/auth";
+import { canDeleteCatalog, canManageCatalog } from "@/lib/auth/permissions";
 import { normalizeProperties, normalizeProperty } from "@/lib/properties";
 import { createClient } from "@/lib/insforge/server";
 import { parseInput } from "@/lib/validations/parse";
@@ -110,6 +111,10 @@ export async function createPropertyAction(input: PropertyInput) {
   if ("error" in parsed) return { error: parsed.error };
 
   const session = await requireSession();
+  if (!canManageCatalog(session.profile.role)) {
+    return { error: "Seuls le propriétaire et les managers peuvent créer un bien." };
+  }
+
   const insforge = await createClient();
   const data = parsed.data;
 
@@ -143,7 +148,11 @@ export async function updatePropertyAction(id: string, input: PropertyInput) {
   const parsed = parseInput(propertySchema, input);
   if ("error" in parsed) return { error: parsed.error };
 
-  await requireSession();
+  const session = await requireSession();
+  if (!canManageCatalog(session.profile.role)) {
+    return { error: "Seuls le propriétaire et les managers peuvent modifier un bien." };
+  }
+
   const insforge = await createClient();
   const data = parsed.data;
 
@@ -176,7 +185,11 @@ export async function updatePropertyAction(id: string, input: PropertyInput) {
 }
 
 export async function deletePropertyAction(id: string) {
-  await requireSession();
+  const session = await requireSession();
+  if (!canDeleteCatalog(session.profile.role)) {
+    return { error: "Seuls le propriétaire et les managers peuvent supprimer un bien." };
+  }
+
   const insforge = await createClient();
 
   const { error } = await insforge.database.from("properties").delete().eq("id", id);
@@ -188,6 +201,10 @@ export async function deletePropertyAction(id: string) {
 
 export async function uploadPropertyPhotoAction(formData: FormData) {
   const session = await requireSession();
+  if (!canManageCatalog(session.profile.role)) {
+    return { error: "Droits insuffisants." };
+  }
+
   const insforge = await createClient();
   const file = formData.get("file") as File | null;
   const propertyId = formData.get("propertyId") as string | null;

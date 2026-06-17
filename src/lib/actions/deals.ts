@@ -2,6 +2,13 @@
 
 import { requireSession } from "@/lib/auth";
 import {
+  canCancelDeals,
+  canManageDeals,
+  getAgentScopeId,
+} from "@/lib/auth/permissions";
+import { assertDealAccess } from "@/lib/auth/resource-access";
+import { assertClientAccess } from "@/lib/auth/resource-access";
+import {
   buildDealFinancials,
   propertyAvailabilityMessage,
   type PropertyDealCheck,
@@ -72,6 +79,8 @@ export async function getDealStatusCounts(): Promise<DealStatusCounts> {
 }
 
 export async function getDealsList(filters?: DealListFilters): Promise<DealWithRelations[]> {
+  const session = await requireSession();
+  const scopeId = getAgentScopeId(session);
   const insforge = await createClient();
   let query = insforge.database
     .from("deals")
@@ -81,8 +90,9 @@ export async function getDealsList(filters?: DealListFilters): Promise<DealWithR
   if (filters?.status) {
     query = query.eq("status", filters.status);
   }
-  if (filters?.agent) {
-    query = query.eq("agent_id", filters.agent);
+  const agentFilter = scopeId ?? filters?.agent;
+  if (agentFilter) {
+    query = query.eq("agent_id", agentFilter);
   }
 
   const { data, error } = await query;
@@ -108,6 +118,10 @@ export async function getDealsList(filters?: DealListFilters): Promise<DealWithR
 }
 
 export async function getDealsByClientId(clientId: string): Promise<DealWithRelations[]> {
+  const session = await requireSession();
+  const access = await assertClientAccess(session, clientId);
+  if (access.error) return [];
+
   const insforge = await createClient();
   const { data, error } = await insforge.database
     .from("deals")
@@ -120,6 +134,10 @@ export async function getDealsByClientId(clientId: string): Promise<DealWithRela
 }
 
 export async function getDeal(id: string): Promise<DealWithRelations | null> {
+  const session = await requireSession();
+  const access = await assertDealAccess(session, id);
+  if (access.error) return null;
+
   const insforge = await createClient();
   const { data, error } = await insforge.database
     .from("deals")
@@ -191,6 +209,10 @@ export async function createDealAction(input: {
   if ("error" in parsed) return { error: parsed.error };
 
   const session = await requireSession();
+  if (!canManageDeals(session.profile.role)) {
+    return { error: "Droits insuffisants pour créer une vente." };
+  }
+
   const data = parsed.data;
   const check = await checkPropertyForDeal(data.property_id);
 
@@ -306,6 +328,11 @@ export async function getDealFinancials(dealId: string): Promise<DealFinancials 
 }
 
 export async function markDealSoldeAction(dealId: string) {
+  const session = await requireSession();
+  if (!canCancelDeals(session.profile.role)) {
+    return { error: "Seuls le propriétaire et les managers peuvent clôturer une vente." };
+  }
+
   const financials = await getDealFinancials(dealId);
   if (!financials) return { error: "Vente introuvable." };
   if (financials.remaining > 0) {
@@ -327,7 +354,14 @@ export async function markDealSoldeAction(dealId: string) {
 }
 
 export async function cancelDealAction(dealId: string) {
-  await requireSession();
+  const session = await requireSession();
+  if (!canCancelDeals(session.profile.role)) {
+    return { error: "Seuls le propriétaire et les managers peuvent annuler une vente." };
+  }
+
+  const access = await assertDealAccess(session, dealId);
+  if (access.error) return { error: access.error };
+
   const insforge = await createClient();
 
   const { error } = await insforge.database

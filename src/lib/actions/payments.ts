@@ -1,6 +1,7 @@
 "use server";
 
 import { requireSession } from "@/lib/auth";
+import { assertDealAccess } from "@/lib/auth/resource-access";
 import { createClient } from "@/lib/insforge/server";
 import { parseInput } from "@/lib/validations/parse";
 import { recordPaymentSchema } from "@/lib/validations/schemas";
@@ -21,8 +22,11 @@ export async function recordPaymentAction(input: {
   if ("error" in parsed) return { error: parsed.error };
 
   const session = await requireSession();
-  const insforge = await createClient();
   const data = parsed.data;
+  const access = await assertDealAccess(session, data.deal_id);
+  if (access.error) return { error: access.error };
+
+  const insforge = await createClient();
 
   const { data: receiptNumber, error: rpcError } = await insforge.database.rpc(
     "next_receipt_number",

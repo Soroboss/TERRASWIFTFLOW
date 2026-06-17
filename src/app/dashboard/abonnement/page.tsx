@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requireSession } from "@/lib/auth";
+import { requireOwner } from "@/lib/auth/access";
 import { TrialCountdown } from "@/components/subscription/trial-countdown";
 import { PlanUsageSummary } from "@/components/subscription/plan-usage-summary";
 import { PaymentSupportContacts } from "@/components/payment/payment-support-contacts";
@@ -13,7 +14,10 @@ import { CreditCard, ShieldCheck, Timer, Users } from "lucide-react";
 import { differenceInDays } from "date-fns";
 
 export default async function AbonnementPage() {
-  const { organization } = await requireSession();
+  const session = await requireSession();
+  requireOwner(session);
+
+  const { organization } = session;
   const [plan, usage] = await Promise.all([
     Promise.resolve(getPlanById(organization.plan)),
     getPlanUsage(),
