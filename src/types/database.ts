@@ -97,6 +97,8 @@ export interface Deal {
   definitive_contract_at: string | null;
   num_months: number | null;
   signed_at: string | null;
+  cancelled_at: string | null;
+  cancelled_by: string | null;
   created_at: string;
 }
 

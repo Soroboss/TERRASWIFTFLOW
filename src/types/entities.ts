@@ -18,6 +18,18 @@ export interface PaymentSchedule {
   line_type?: import("@/types/database").ScheduleLineType | null;
 }
 
+export interface DealRefund {
+  id: string;
+  deal_id: string;
+  organization_id: string;
+  amount: number;
+  method: PaymentMethod;
+  refunded_at: string;
+  recorded_by: string | null;
+  reason: string | null;
+  created_at: string;
+}
+
 export interface Payment {
   id: string;
   schedule_id: string | null;

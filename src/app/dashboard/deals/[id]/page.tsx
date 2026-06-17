@@ -5,15 +5,16 @@ import { DealScheduleTable } from "@/components/deals/deal-schedule-table";
 import { ScheduleGenerator } from "@/components/deals/schedule-generator";
 import { DealActions } from "@/components/deals/deal-actions";
 import { ContractDownloadButtons } from "@/components/deals/contract-download-buttons";
-import { getDeal, getDealFinancials } from "@/lib/actions/deals";
+import { getDeal, getDealFinancials, getDealRefund } from "@/lib/actions/deals";
 import { requireSession } from "@/lib/auth";
-import { canCancelDeals } from "@/lib/auth/permissions";
+import { canCancelDealsWithRefund } from "@/lib/auth/permissions";
 import {
   CONTRACT_STAGE_LABELS,
   CONTRACT_TYPE_LABELS,
   PAYMENT_MODE_LABELS,
 } from "@/lib/sales-contract";
 import { formatFCFA, formatDate, formatPhoneCI } from "@/lib/format";
+import { PAYMENT_METHOD_LABELS } from "@/types/entities";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -22,10 +23,11 @@ interface PageProps {
 export default async function DealDetailPage({ params }: PageProps) {
   const { id } = await params;
   const session = await requireSession();
-  const canManageDeal = canCancelDeals(session.profile.role);
-  const [deal, financials] = await Promise.all([
+  const canCancelDeal = canCancelDealsWithRefund(session.profile.role);
+  const [deal, financials, refund] = await Promise.all([
     getDeal(id),
     getDealFinancials(id),
+    getDealRefund(id),
   ]);
 
   if (!deal || !financials) notFound();
@@ -55,8 +57,13 @@ export default async function DealDetailPage({ params }: PageProps) {
         </div>
         <div className="flex flex-col gap-2 sm:items-end">
           <ContractDownloadButtons deal={deal} />
-          {canManageDeal && (
-            <DealActions dealId={deal.id} status={deal.status} remaining={financials.remaining} />
+          {canCancelDeal && (
+            <DealActions
+              dealId={deal.id}
+              status={deal.status}
+              remaining={financials.remaining}
+              totalPaid={financials.total_paid}
+            />
           )}
         </div>
       </div>
@@ -108,7 +115,26 @@ export default async function DealDetailPage({ params }: PageProps) {
         </Card>
       </div>
 
-      {contractStage === "provisoire" && financials.remaining > 0 && (
+      {deal.status === "annule" && (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900">
+          <p className="font-medium">Vente annulée</p>
+          {deal.cancelled_at && (
+            <p className="mt-1">Le {formatDate(deal.cancelled_at)}</p>
+          )}
+          {refund && (
+            <p className="mt-1">
+              Remboursement : {formatFCFA(refund.amount)} via{" "}
+              {PAYMENT_METHOD_LABELS[refund.method]}
+              {refund.reason ? ` — ${refund.reason}` : ""}
+            </p>
+          )}
+          {!refund && financials.total_paid === 0 && (
+            <p className="mt-1 text-muted-foreground">Aucun paiement ni remboursement enregistré.</p>
+          )}
+        </div>
+      )}
+
+      {contractStage === "provisoire" && financials.remaining > 0 && deal.status === "en_cours" && (
         <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
           {paymentMode === "cash"
             ? "Contrat définitif disponible après encaissement du paiement cash intégral."
@@ -137,7 +163,11 @@ export default async function DealDetailPage({ params }: PageProps) {
         />
       )}
 
-      <DealScheduleTable dealId={deal.id} schedules={financials.schedules} />
+      <DealScheduleTable
+        dealId={deal.id}
+        schedules={financials.schedules}
+        readOnly={deal.status !== "en_cours"}
+      />
     </div>
   );
 }

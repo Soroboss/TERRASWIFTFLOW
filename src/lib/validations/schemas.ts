@@ -116,6 +116,23 @@ export const createDealSchema = z
     }
   });
 
+export const cancelDealSchema = z
+  .object({
+    deal_id: uuid,
+    refund_amount: z.number().nonnegative().optional(),
+    refund_method: z.enum(["wave", "orange_money", "mtn", "especes", "virement"]).optional(),
+    reason: z.string().trim().max(500).optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.refund_amount && data.refund_amount > 0 && !data.refund_method) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Indiquez le mode de remboursement.",
+        path: ["refund_method"],
+      });
+    }
+  });
+
 export const recordPaymentSchema = z.object({
   deal_id: uuid,
   schedule_id: uuid,

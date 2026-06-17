@@ -17,10 +17,11 @@ import { generatePaymentSchedule } from "@/lib/schedule";
 import { computeBalanceFromLines } from "@/lib/sales-contract";
 import { createClient } from "@/lib/insforge/server";
 import { parseInput } from "@/lib/validations/parse";
-import { createDealSchema } from "@/lib/validations/schemas";
-import type { Client, Deal, PaymentMode, Profile, Property } from "@/types/database";
+import { cancelDealSchema, createDealSchema } from "@/lib/validations/schemas";
+import type { Client, Deal, PaymentMode, PaymentMethod, Profile, Property } from "@/types/database";
 import type {
   DealFinancials,
+  DealRefund,
   DealWithRelations,
   Payment,
   PaymentSchedule,
@@ -162,7 +163,7 @@ export async function checkPropertyForDeal(
     return {
       blocked: true,
       reason: "Bien introuvable.",
-      deal: { id: "", organization_id: "", property_id: propertyId, client_id: "", agent_id: "", total_amount: 0, status: "en_cours", payment_mode: "echelonne", contract_type: "acd", deposit_amount: null, balance_amount: null, contract_stage: "provisoire", definitive_contract_at: null, num_months: null, signed_at: null, created_at: "" },
+      deal: { id: "", organization_id: "", property_id: propertyId, client_id: "", agent_id: "", total_amount: 0, status: "en_cours", payment_mode: "echelonne", contract_type: "acd", deposit_amount: null, balance_amount: null, contract_stage: "provisoire", definitive_contract_at: null, num_months: null, signed_at: null, cancelled_at: null, cancelled_by: null, created_at: "" },
     };
   }
 
@@ -453,28 +454,111 @@ export async function markDealSoldeAction(dealId: string) {
   return { success: true };
 }
 
-export async function cancelDealAction(dealId: string) {
+export async function cancelDealAction(input: {
+  deal_id: string;
+  refund_amount?: number;
+  refund_method?: PaymentMethod;
+  reason?: string;
+}) {
+  const parsed = parseInput(cancelDealSchema, input);
+  if ("error" in parsed) return { error: parsed.error };
+
   const session = await requireSession();
   if (!canCancelDeals(session.profile.role)) {
-    return { error: "Seuls le propriétaire et les managers peuvent annuler une vente." };
+    return {
+      error:
+        "Seuls le propriétaire (DG) et les managers peuvent annuler une vente. Les agents commerciaux n'ont pas cette autorisation.",
+    };
   }
 
+  const dealId = parsed.data.deal_id;
   const access = await assertDealAccess(session, dealId);
   if (access.error) return { error: access.error };
 
+  const deal = await getDeal(dealId);
+  if (!deal) return { error: "Vente introuvable." };
+  if (deal.status !== "en_cours") {
+    return { error: "Seules les ventes en cours peuvent être annulées." };
+  }
+
+  const financials = await getDealFinancials(dealId);
+  if (!financials) return { error: "Vente introuvable." };
+
+  const totalPaid = financials.total_paid;
+  const refundAmount = parsed.data.refund_amount ?? 0;
+
+  if (totalPaid > 0) {
+    if (refundAmount <= 0 || !parsed.data.refund_method) {
+      return {
+        error: `Cette vente a reçu ${totalPaid} FCFA : un remboursement intégral est obligatoire pour annuler.`,
+      };
+    }
+    if (refundAmount < totalPaid) {
+      return {
+        error: `Le remboursement doit couvrir la totalité des encaissements (${totalPaid} FCFA).`,
+      };
+    }
+  } else if (refundAmount > 0) {
+    return { error: "Aucun paiement enregistré — remboursement non requis." };
+  }
+
   const insforge = await createClient();
+  const now = new Date().toISOString();
+
+  if (totalPaid > 0 && parsed.data.refund_method) {
+    const { error: refundError } = await insforge.database.from("deal_refunds").insert({
+      deal_id: dealId,
+      organization_id: session.profile.organization_id,
+      amount: refundAmount,
+      method: parsed.data.refund_method,
+      refunded_at: now,
+      recorded_by: session.userId,
+      reason: parsed.data.reason?.trim() || null,
+    });
+
+    if (refundError) return { error: refundError.message };
+  }
 
   const { error } = await insforge.database
     .from("deals")
-    .update({ status: "annule" })
+    .update({
+      status: "annule",
+      cancelled_at: now,
+      cancelled_by: session.userId,
+      contract_stage: "provisoire",
+    })
     .eq("id", dealId);
 
   if (error) return { error: error.message };
 
   revalidatePath(`/dashboard/deals/${dealId}`);
+  revalidatePath("/dashboard/deals");
   revalidatePath("/dashboard/biens");
   revalidatePath("/dashboard/plans");
-  redirect("/dashboard/deals");
+  revalidatePath("/dashboard/encaissements");
+  revalidatePath("/dashboard");
+  return { success: true };
+}
+
+export async function getDealRefund(dealId: string): Promise<DealRefund | null> {
+  const session = await requireSession();
+  const access = await assertDealAccess(session, dealId);
+  if (access.error) return null;
+
+  const insforge = await createClient();
+  const { data, error } = await insforge.database
+    .from("deal_refunds")
+    .select("*")
+    .eq("deal_id", dealId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  return {
+    ...data,
+    amount: Number(data.amount),
+  } as DealRefund;
 }
 
 export async function getDealByPropertyId(propertyId: string): Promise<{

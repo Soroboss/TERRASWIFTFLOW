@@ -87,6 +87,11 @@ export function canCancelDeals(role: UserRole): boolean {
   return hasPermission(role, "cancel_deals");
 }
 
+/** Annulation avec remboursement : propriétaire (DG) et manager uniquement — jamais l'agent commercial. */
+export function canCancelDealsWithRefund(role: UserRole): boolean {
+  return canCancelDeals(role);
+}
+
 export function canManageTeam(role: UserRole): boolean {
   return hasPermission(role, "manage_team");
 }

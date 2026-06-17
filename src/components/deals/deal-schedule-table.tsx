@@ -18,9 +18,10 @@ import { cn } from "@/lib/utils";
 interface DealScheduleTableProps {
   dealId: string;
   schedules: ScheduleWithPayments[];
+  readOnly?: boolean;
 }
 
-export function DealScheduleTable({ dealId, schedules }: DealScheduleTableProps) {
+export function DealScheduleTable({ dealId, schedules, readOnly = false }: DealScheduleTableProps) {
   const [payScheduleId, setPayScheduleId] = useState("");
   const [payAmount, setPayAmount] = useState("");
   const [payMethod, setPayMethod] = useState<PaymentMethod>("wave");
@@ -100,9 +101,11 @@ export function DealScheduleTable({ dealId, schedules }: DealScheduleTableProps)
                   <span className="text-xs font-medium">
                     {s.is_paid ? "Soldé" : s.is_overdue ? "En retard" : "À venir"}
                   </span>
-                  <Button variant="ghost" size="sm" onClick={() => handleEditLine(s)}>
-                    Modifier
-                  </Button>
+                  {!readOnly && (
+                    <Button variant="ghost" size="sm" onClick={() => handleEditLine(s)}>
+                      Modifier
+                    </Button>
+                  )}
                 </div>
               </div>
             ))
@@ -110,7 +113,7 @@ export function DealScheduleTable({ dealId, schedules }: DealScheduleTableProps)
         </CardContent>
       </Card>
 
-      {schedules.some((s) => !s.is_paid) && (
+      {!readOnly && schedules.some((s) => !s.is_paid) && (
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Enregistrer un versement</CardTitle>
