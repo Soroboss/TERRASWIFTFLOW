@@ -20,6 +20,7 @@ interface DashboardOverviewPanelProps {
   getLotHref?: (lot: MasterplanLotGridItem) => string | null;
   programHref?: string | null;
   showCollectedBanner?: boolean;
+  gridMaxVisible?: number;
   className?: string;
   shadow?: "sm" | "lg";
 }
@@ -37,6 +38,7 @@ export function DashboardOverviewPanel({
   getLotHref,
   programHref,
   showCollectedBanner = true,
+  gridMaxVisible,
   className,
   shadow = "sm",
 }: DashboardOverviewPanelProps) {
@@ -73,6 +75,7 @@ export function DashboardOverviewPanel({
       <MasterplanLotsGrid
         lots={lots}
         totalLots={totalLots}
+        maxVisible={gridMaxVisible}
         getHref={getLotHref}
         emptyMessage="Créez un plan de masse et rattachez vos lots pour les voir ici."
       />

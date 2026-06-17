@@ -2,6 +2,7 @@ import { createClient } from "@/lib/insforge/server";
 import type { Organization, Profile } from "@/types/database";
 import { isInsforgeConfigured } from "@/lib/env";
 import { redirect } from "next/navigation";
+import { cache } from "react";
 
 export interface SessionContext {
   userId: string;
@@ -9,7 +10,7 @@ export interface SessionContext {
   organization: Organization;
 }
 
-export async function getSessionContext(): Promise<SessionContext | null> {
+export const getSessionContext = cache(async (): Promise<SessionContext | null> => {
   if (!isInsforgeConfigured()) return null;
 
   try {
@@ -43,7 +44,7 @@ export async function getSessionContext(): Promise<SessionContext | null> {
   } catch {
     return null;
   }
-}
+});
 
 export async function requireSession(): Promise<SessionContext> {
   const session = await getSessionContext();

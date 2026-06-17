@@ -1,11 +1,7 @@
 import Link from "next/link";
 import { requireSession } from "@/lib/auth";
-import { getDashboardKPIs } from "@/lib/actions/dashboard";
-import { getMasterplanLots, getMasterplans } from "@/lib/actions/masterplans";
-import { getProperties } from "@/lib/actions/properties";
-import { getTodayActivities } from "@/lib/actions/activities";
-import { getDealByPropertyId } from "@/lib/actions/deals";
-import { countPropertiesByStatus } from "@/lib/property-status";
+import { getDashboardPageData } from "@/lib/actions/dashboard";
+import { getOverviewStats } from "@/lib/dashboard/overview";
 import { formatDate, formatFCFA } from "@/lib/format";
 import { formatFcfa, getPlanById } from "@/lib/pricing";
 import { DashboardOverviewPanel } from "@/components/dashboard/dashboard-overview-panel";
@@ -25,29 +21,10 @@ export default async function DashboardPage() {
   const { organization, profile } = session;
   const agentFilter = profile.role === "agent" ? profile.id : null;
 
-  const [kpis, activities, properties, masterplans] = await Promise.all([
-    getDashboardKPIs(agentFilter),
-    getTodayActivities(agentFilter ?? undefined),
-    getProperties(),
-    getMasterplans(),
-  ]);
+  const { kpis, activities, propertyCounts, primaryMasterplan, overviewLots, lotHrefById } =
+    await getDashboardPageData(agentFilter);
 
-  const primaryMasterplan = masterplans[0] ?? null;
-  const masterplanLots = primaryMasterplan
-    ? await getMasterplanLots(primaryMasterplan.id)
-    : [];
-
-  const overviewLots = masterplanLots.length > 0 ? masterplanLots : properties;
-  const { libres, reserves, vendus } = countPropertiesByStatus(overviewLots);
-
-  const lotHrefById = new Map<string, string>();
-  for (const lot of overviewLots) {
-    const deal = await getDealByPropertyId(lot.id);
-    lotHrefById.set(
-      lot.id,
-      deal ? `/dashboard/deals/${deal.id}` : `/dashboard/biens/${lot.id}`
-    );
-  }
+  const { libres, reserves, vendus } = getOverviewStats(overviewLots, propertyCounts);
 
   const trialDaysLeft =
     organization.subscription_status === "trial" && organization.trial_ends_at
@@ -82,16 +59,21 @@ export default async function DashboardPage() {
 
       <DashboardOverviewPanel
         organizationName={organization.name}
-        programName={primaryMasterplan?.name ?? null}
+        programName={primaryMasterplan?.masterplan.name ?? null}
         trialDaysLeft={trialDaysLeft}
         libres={libres}
         reserves={reserves}
         vendus={vendus}
         lots={overviewLots}
-        totalLots={primaryMasterplan?.total_lots}
+        totalLots={primaryMasterplan?.masterplan.total_lots}
         collectedThisMonth={kpis.collected_this_month}
         getLotHref={(lot) => lotHrefById.get(lot.id) ?? `/dashboard/biens/${lot.id}`}
-        programHref={primaryMasterplan ? `/dashboard/plans/${primaryMasterplan.id}` : "/dashboard/plans"}
+        programHref={
+          primaryMasterplan
+            ? `/dashboard/plans/${primaryMasterplan.masterplan.id}`
+            : "/dashboard/plans"
+        }
+        gridMaxVisible={96}
       />
 
       {!primaryMasterplan && (
@@ -126,9 +108,9 @@ export default async function DashboardPage() {
               <Building2 className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <p className="text-2xl font-bold">{properties.length}</p>
+              <p className="text-2xl font-bold">{propertyCounts.total}</p>
               <p className="text-xs text-muted-foreground">
-                {libres} libres · {reserves} réservés · {vendus} vendus
+                {propertyCounts.libres} libres · {propertyCounts.reserves} réservés · {propertyCounts.vendus} vendus
               </p>
             </CardContent>
           </Card>

@@ -3,11 +3,11 @@ import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { PropertyStatusBadge } from "@/components/biens/property-status-badge";
-import { getProperties } from "@/lib/actions/properties";
+import { getPropertiesList } from "@/lib/actions/properties";
 import { formatFCFA } from "@/lib/format";
 
 export default async function BiensPage() {
-  const properties = await getProperties();
+  const properties = await getPropertiesList();
 
   return (
     <div className="space-y-6">

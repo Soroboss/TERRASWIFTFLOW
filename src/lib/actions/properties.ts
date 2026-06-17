@@ -31,11 +31,45 @@ export async function getProperties(): Promise<Property[]> {
   const insforge = await createClient();
   const { data, error } = await insforge.database
     .from("properties")
-    .select("*")
+    .select(
+      "id, organization_id, type, title, reference, status, price_total, surface_m2, price_per_m2, location_label, lat, lng, lot_number, masterplan_id, rooms, construction_status, created_by, created_at, photos"
+    )
     .order("created_at", { ascending: false });
 
   if (error) throw new Error(error.message);
   return normalizeProperties((data ?? []) as Property[]);
+}
+
+export type PropertyListItem = Pick<
+  Property,
+  | "id"
+  | "type"
+  | "title"
+  | "reference"
+  | "status"
+  | "price_total"
+  | "surface_m2"
+  | "location_label"
+  | "lot_number"
+>;
+
+/** Liste légère sans photos — chargement plus rapide. */
+export async function getPropertiesList(): Promise<PropertyListItem[]> {
+  const insforge = await createClient();
+  const { data, error } = await insforge.database
+    .from("properties")
+    .select(
+      "id, type, title, reference, status, price_total, surface_m2, location_label, lot_number"
+    )
+    .order("created_at", { ascending: false });
+
+  if (error) throw new Error(error.message);
+
+  return (data ?? []).map((row) => ({
+    ...row,
+    price_total: Number(row.price_total),
+    surface_m2: row.surface_m2 ? Number(row.surface_m2) : null,
+  })) as PropertyListItem[];
 }
 
 export async function getProperty(id: string): Promise<Property | null> {

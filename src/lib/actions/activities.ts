@@ -9,7 +9,6 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 export async function getTodayActivities(agentId?: string): Promise<Activity[]> {
-  const session = await requireSession();
   const insforge = await createClient();
   const today = new Date().toISOString().slice(0, 10);
 
@@ -20,10 +19,8 @@ export async function getTodayActivities(agentId?: string): Promise<Activity[]> 
     .lte("due_at", `${today}T23:59:59`)
     .order("due_at");
 
-  const filterAgent =
-    agentId ?? (session.profile.role === "agent" ? session.userId : null);
-  if (filterAgent) {
-    query = query.eq("agent_id", filterAgent);
+  if (agentId) {
+    query = query.eq("agent_id", agentId);
   }
 
   const { data, error } = await query;

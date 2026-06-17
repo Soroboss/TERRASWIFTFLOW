@@ -4,19 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { LotStatusSummary } from "@/components/dashboard/lot-status-summary";
 import { MasterplanLotsGrid } from "@/components/dashboard/masterplan-lots-grid";
-import { getMasterplanLots, getMasterplans } from "@/lib/actions/masterplans";
+import { getMasterplansWithLots } from "@/lib/actions/masterplans";
 import { countPropertiesByStatus } from "@/lib/property-status";
 
 export default async function PlansPage() {
-  const masterplans = await getMasterplans();
-
-  const plansWithLots = await Promise.all(
-    masterplans.map(async (mp) => {
-      const lots = await getMasterplanLots(mp.id);
-      const stats = countPropertiesByStatus(lots);
-      return { masterplan: mp, lots, stats };
-    })
-  );
+  const plansWithLots = await getMasterplansWithLots();
 
   return (
     <div className="space-y-6">
@@ -43,37 +35,41 @@ export default async function PlansPage() {
         </Card>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
-          {plansWithLots.map(({ masterplan, lots, stats }) => (
-            <Link key={masterplan.id} href={`/dashboard/plans/${masterplan.id}`}>
-              <Card className="h-full transition-shadow hover:shadow-md">
-                <CardContent className="space-y-4 p-4">
-                  <div>
-                    <p className="font-semibold">{masterplan.name}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {lots.length}/{masterplan.total_lots} lot
-                      {masterplan.total_lots !== 1 ? "s" : ""} renseigné
-                      {masterplan.total_lots !== 1 ? "s" : ""}
-                    </p>
-                  </div>
+          {plansWithLots.map(({ masterplan, lots }) => {
+            const stats = countPropertiesByStatus(lots);
+            return (
+              <Link key={masterplan.id} href={`/dashboard/plans/${masterplan.id}`}>
+                <Card className="h-full transition-shadow hover:shadow-md">
+                  <CardContent className="space-y-4 p-4">
+                    <div>
+                      <p className="font-semibold">{masterplan.name}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {lots.length}/{masterplan.total_lots} lot
+                        {masterplan.total_lots !== 1 ? "s" : ""} renseigné
+                        {lots.length !== 1 ? "s" : ""}
+                      </p>
+                    </div>
 
-                  <LotStatusSummary
-                    libres={stats.libres}
-                    reserves={stats.reserves}
-                    vendus={stats.vendus}
-                    compact
-                  />
+                    <LotStatusSummary
+                      libres={stats.libres}
+                      reserves={stats.reserves}
+                      vendus={stats.vendus}
+                      compact
+                    />
 
-                  <MasterplanLotsGrid
-                    lots={lots}
-                    totalLots={masterplan.total_lots}
-                    columns={8}
-                    showLegend={false}
-                    emptyMessage="Aucun lot pour l'instant."
-                  />
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
+                    <MasterplanLotsGrid
+                      lots={lots}
+                      totalLots={masterplan.total_lots}
+                      columns={8}
+                      maxVisible={48}
+                      showLegend={false}
+                      emptyMessage="Aucun lot pour l'instant."
+                    />
+                  </CardContent>
+                </Card>
+              </Link>
+            );
+          })}
         </div>
       )}
     </div>

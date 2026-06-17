@@ -260,17 +260,60 @@ export async function getDealByPropertyId(propertyId: string): Promise<{
   status: string;
   client?: { full_name: string } | { full_name: string }[] | null;
 } | null> {
-  const insforge = await createClient();
-  const { data } = await insforge.database
-    .from("deals")
-    .select("id, status, client:clients(full_name)")
-    .eq("property_id", propertyId)
-    .in("status", ["en_cours", "solde"])
-    .maybeSingle();
+  const map = await getActiveDealsByPropertyIds([propertyId]);
+  const deal = map.get(propertyId);
+  if (!deal) return null;
+  return {
+    id: deal.id,
+    status: deal.status,
+    client: deal.client,
+  };
+}
 
-  return data as {
-    id: string;
-    status: string;
-    client?: { full_name: string } | { full_name: string }[] | null;
-  } | null;
+export async function getActiveDealsByPropertyIds(
+  propertyIds: string[]
+): Promise<
+  Map<
+    string,
+    {
+      id: string;
+      property_id: string;
+      status: string;
+      client?: { full_name: string } | { full_name: string }[] | null;
+    }
+  >
+> {
+  const uniqueIds = [...new Set(propertyIds)];
+  const result = new Map<
+    string,
+    {
+      id: string;
+      property_id: string;
+      status: string;
+      client?: { full_name: string } | { full_name: string }[] | null;
+    }
+  >();
+
+  if (uniqueIds.length === 0) return result;
+
+  const insforge = await createClient();
+  const { data, error } = await insforge.database
+    .from("deals")
+    .select("id, property_id, status, client:clients(full_name)")
+    .in("property_id", uniqueIds)
+    .in("status", ["en_cours", "solde"]);
+
+  if (error) throw new Error(error.message);
+
+  for (const row of data ?? []) {
+    const deal = row as {
+      id: string;
+      property_id: string;
+      status: string;
+      client?: { full_name: string } | { full_name: string }[] | null;
+    };
+    result.set(deal.property_id, deal);
+  }
+
+  return result;
 }

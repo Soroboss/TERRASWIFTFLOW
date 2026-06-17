@@ -6,7 +6,8 @@ import { statusColorClass } from "@/components/biens/property-status-badge";
 import { LotStatusSummary } from "@/components/dashboard/lot-status-summary";
 import { MasterplanLotsGrid } from "@/components/dashboard/masterplan-lots-grid";
 import { getMasterplan, getMasterplanLots } from "@/lib/actions/masterplans";
-import { getDealByPropertyId } from "@/lib/actions/deals";
+import { getActiveDealsByPropertyIds } from "@/lib/actions/deals";
+import { buildLotHrefMap, dealClientName } from "@/lib/dashboard/overview";
 import { countPropertiesByStatus } from "@/lib/property-status";
 import { formatFCFA } from "@/lib/format";
 import type { PropertyStatus } from "@/types/database";
@@ -31,15 +32,10 @@ export default async function PlanDetailPage({ params }: PageProps) {
   if (!masterplan) notFound();
 
   const { libres, reserves, vendus } = countPropertiesByStatus(lots);
-
-  const lotHrefById = new Map<string, string>();
-  const lotsWithDeals = await Promise.all(
-    lots.map(async (lot) => {
-      const deal = await getDealByPropertyId(lot.id);
-      const href = deal ? `/dashboard/deals/${deal.id}` : `/dashboard/biens/${lot.id}`;
-      lotHrefById.set(lot.id, href);
-      return { lot, deal };
-    })
+  const dealsByProperty = await getActiveDealsByPropertyIds(lots.map((lot) => lot.id));
+  const lotHrefById = buildLotHrefMap(
+    lots.map((lot) => lot.id),
+    dealsByProperty
   );
 
   return (
@@ -77,29 +73,33 @@ export default async function PlanDetailPage({ params }: PageProps) {
             </p>
           ) : (
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {lotsWithDeals.map(({ lot, deal }) => (
-                <Link
-                  key={lot.id}
-                  href={lotHrefById.get(lot.id) ?? `/dashboard/biens/${lot.id}`}
-                  className="flex items-start gap-3 rounded-lg border p-3 transition-colors hover:bg-accent"
-                >
-                  <div className={`mt-1 h-4 w-4 shrink-0 rounded-full ${statusColorClass(lot.status)}`} />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium">
-                      Lot {lot.lot_number ?? lot.reference}
-                    </p>
-                    <p className="truncate text-xs text-muted-foreground">{lot.title}</p>
-                    <p className="text-xs font-medium">
-                      {STATUS_LABELS[lot.status]} · {formatFCFA(lot.price_total)}
-                    </p>
-                    {deal && (
-                      <p className="text-xs text-primary">
-                        Vente {Array.isArray(deal.client) ? deal.client[0]?.full_name : deal.client?.full_name ?? "en cours"} →
+              {lots.map((lot) => {
+                const deal = dealsByProperty.get(lot.id);
+                const href = lotHrefById.get(lot.id) ?? `/dashboard/biens/${lot.id}`;
+                return (
+                  <Link
+                    key={lot.id}
+                    href={href}
+                    className="flex items-start gap-3 rounded-lg border p-3 transition-colors hover:bg-accent"
+                  >
+                    <div className={`mt-1 h-4 w-4 shrink-0 rounded-full ${statusColorClass(lot.status)}`} />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-medium">
+                        Lot {lot.lot_number ?? lot.reference}
                       </p>
-                    )}
-                  </div>
-                </Link>
-              ))}
+                      <p className="truncate text-xs text-muted-foreground">{lot.title}</p>
+                      <p className="text-xs font-medium">
+                        {STATUS_LABELS[lot.status]} · {formatFCFA(lot.price_total)}
+                      </p>
+                      {deal && (
+                        <p className="text-xs text-primary">
+                          Vente {dealClientName(deal.client) ?? "en cours"} →
+                        </p>
+                      )}
+                    </div>
+                  </Link>
+                );
+              })}
             </div>
           )}
         </CardContent>

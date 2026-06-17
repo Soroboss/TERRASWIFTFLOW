@@ -18,6 +18,7 @@ interface MasterplanLotsGridProps {
   lots: MasterplanLotGridItem[];
   totalLots?: number;
   columns?: number;
+  maxVisible?: number;
   getHref?: (lot: MasterplanLotGridItem) => string | null;
   emptyMessage?: string;
   showLegend?: boolean;
@@ -28,11 +29,14 @@ export function MasterplanLotsGrid({
   lots,
   totalLots,
   columns = 6,
+  maxVisible,
   getHref,
   emptyMessage = "Aucun lot rattaché à ce plan.",
   showLegend = true,
   title = "Plan de masse",
 }: MasterplanLotsGridProps) {
+  const visibleLots = maxVisible ? lots.slice(0, maxVisible) : lots;
+  const hiddenCount = maxVisible ? Math.max(0, lots.length - maxVisible) : 0;
   const placeholderCount = Math.max(0, (totalLots ?? lots.length) - lots.length);
   const gridStyle = { gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` };
 
@@ -49,7 +53,7 @@ export function MasterplanLotsGrid({
     <div className="rounded-lg border bg-muted/20 p-2 sm:p-3">
       <p className="mb-2 text-xs font-medium text-muted-foreground">{title}</p>
       <div className="grid gap-1" style={gridStyle}>
-        {lots.map((lot) => {
+        {visibleLots.map((lot) => {
           const label = lot.lot_number ?? lot.reference ?? lot.title ?? "Lot";
           const href = getHref?.(lot) ?? null;
           const cell = (
@@ -77,6 +81,11 @@ export function MasterplanLotsGrid({
           />
         ))}
       </div>
+      {hiddenCount > 0 && (
+        <p className="mt-2 text-[10px] text-muted-foreground sm:text-xs">
+          +{hiddenCount} lot{hiddenCount > 1 ? "s" : ""} — ouvrez le plan de masse pour tout voir
+        </p>
+      )}
       {showLegend && (
         <div className="mt-3 flex flex-wrap gap-3 text-[10px] text-muted-foreground sm:text-xs">
           {(["libre", "reserve", "vendu"] as PropertyStatus[]).map((status) => (
