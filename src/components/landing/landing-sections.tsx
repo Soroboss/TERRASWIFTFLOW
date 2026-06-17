@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import {
   ArrowRight,
   Building2,
@@ -15,6 +16,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { PRICING_PLANS, TRIAL_DAYS } from "@/lib/pricing";
 import { PricingCard } from "@/components/landing/pricing-card";
+import { LandingImage, LANDING_IMAGES } from "@/components/landing/landing-image";
+import { LandingDashboardMockup } from "@/components/landing/landing-dashboard-mockup";
 
 const FEATURES = [
   {
@@ -51,7 +54,7 @@ const FEATURES = [
     icon: Building2,
     title: "Terrains & maisons VEFA",
     description:
-      "Lotisseurs et promoteurs fonciers. Pas de locatif, pas de syndic — 100 % vente échelonnée.",
+      "Lotisseurs et promoteurs fonciers. Pas de locatif, pas de syndic — vente cash ou échelonnée.",
   },
 ];
 
@@ -88,18 +91,24 @@ const USE_CASES = [
     title: "Lotisseur à Abidjan",
     description:
       "Gérez 200 parcelles sur un seul plan de masse. Vos agents voient en temps réel ce qui est libre ou vendu.",
+    image: LANDING_IMAGES.masterplan,
+    imageAlt: "Plan de masse illustré avec lots colorés",
   },
   {
     icon: Building2,
     title: "Promoteur VEFA",
     description:
-      "Maisons en construction, paiements échelonnés sur 24 mois. Suivez chaque encaissement lot par lot.",
+      "Maisons en construction, paiements cash ou échelonnés sur 24 mois. Suivez chaque encaissement lot par lot.",
+    image: LANDING_IMAGES.mobileAgent,
+    imageAlt: "Agent immobilier encaissant un paiement mobile sur chantier",
   },
   {
     icon: Users,
     title: "Agence avec plusieurs agents",
     description:
       "Chaque commercial saisit ses ventes depuis le terrain. Le gérant a une vue consolidée sans appeler tout le monde.",
+    image: LANDING_IMAGES.hero,
+    imageAlt: "Tableau de bord de gestion immobilière",
   },
 ];
 
@@ -206,8 +215,11 @@ export function LandingHeader() {
 export function LandingHero() {
   return (
     <section className="relative overflow-hidden bg-gradient-to-b from-emerald-50/80 to-background px-4 py-16 sm:py-24">
-      <div className="mx-auto max-w-6xl">
-        <div className="mx-auto max-w-3xl text-center">
+      <div className="pointer-events-none absolute -right-24 top-0 h-72 w-72 rounded-full bg-primary/10 blur-3xl" />
+      <div className="pointer-events-none absolute -left-24 bottom-0 h-72 w-72 rounded-full bg-amber-200/30 blur-3xl" />
+
+      <div className="mx-auto grid max-w-6xl items-center gap-12 lg:grid-cols-2 lg:gap-16">
+        <div className="text-center lg:text-left">
           <p className="mb-4 inline-block rounded-full bg-primary/10 px-4 py-1 text-sm font-medium text-primary">
             Côte d&apos;Ivoire · FCFA · Wave / Orange Money / MTN
           </p>
@@ -217,10 +229,10 @@ export function LandingHero() {
           </h1>
           <p className="mt-6 text-lg text-muted-foreground sm:text-xl">
             TerraSwiftFlow remplace Excel + WhatsApp + reçus papier. Gérez terrains,
-            maisons VEFA et paiements échelonnés — plan de masse, échéanciers et PDF
+            maisons VEFA et ventes cash ou échelonnées — plan de masse, échéanciers et PDF
             en un seul outil pensé pour les promoteurs ivoiriens.
           </p>
-          <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
+          <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row lg:justify-start">
             <Button size="lg" className="w-full sm:w-auto" asChild>
               <Link href="/register">
                 Démarrer l&apos;essai — {TRIAL_DAYS} jours gratuits
@@ -235,21 +247,34 @@ export function LandingHero() {
           </p>
         </div>
 
-        <div className="mx-auto mt-16 grid max-w-4xl gap-4 sm:grid-cols-3">
-          {[
-            { value: "0", label: "double vente tolérée" },
-            { value: "30 s", label: "pour un reçu PDF" },
-            { value: "100 %", label: "mobile & français" },
-          ].map((stat) => (
-            <div
-              key={stat.label}
-              className="rounded-xl border bg-card p-6 text-center shadow-sm"
-            >
-              <p className="text-3xl font-bold text-primary">{stat.value}</p>
-              <p className="mt-1 text-sm text-muted-foreground">{stat.label}</p>
-            </div>
-          ))}
+        <div className="relative mx-auto w-full max-w-xl lg:max-w-none">
+          <LandingImage
+            src={LANDING_IMAGES.hero}
+            alt="Promoteur ivoirien gérant ses lots et encaissements sur TerraSwiftFlow"
+            className="aspect-[16/10]"
+            priority
+            sizes="(max-width: 1024px) 100vw, 50vw"
+          />
+          <div className="absolute -bottom-8 -left-4 hidden w-[58%] max-w-xs md:block lg:-left-8">
+            <LandingDashboardMockup />
+          </div>
         </div>
+      </div>
+
+      <div className="mx-auto mt-20 grid max-w-4xl gap-4 sm:grid-cols-3">
+        {[
+          { value: "0", label: "double vente tolérée" },
+          { value: "30 s", label: "pour un reçu PDF" },
+          { value: "100 %", label: "mobile & français" },
+        ].map((stat) => (
+          <div
+            key={stat.label}
+            className="rounded-xl border bg-card/80 p-6 text-center shadow-sm backdrop-blur"
+          >
+            <p className="text-3xl font-bold text-primary">{stat.value}</p>
+            <p className="mt-1 text-sm text-muted-foreground">{stat.label}</p>
+          </div>
+        ))}
       </div>
     </section>
   );
@@ -263,11 +288,18 @@ export function LandingProblem() {
           <h2 className="text-3xl font-bold sm:text-4xl">
             Excel et WhatsApp ne suffisent plus
           </h2>
-          <p className="mt-4 max-w-2xl mx-auto text-muted-foreground">
-            Quand vous vendez des terrains ou des maisons en paiement échelonné, une erreur
+          <p className="mx-auto mt-4 max-w-2xl text-muted-foreground">
+            Quand vous vendez des terrains ou des maisons en paiement cash ou échelonné, une erreur
             coûte cher — en argent, en réputation et en contentieux.
           </p>
         </div>
+
+        <LandingImage
+          src={LANDING_IMAGES.beforeAfter}
+          alt="Comparaison avant et après : chaos Excel/WhatsApp versus organisation digitale"
+          className="mx-auto mb-12 aspect-[16/9] max-w-4xl"
+          sizes="(max-width: 1024px) 100vw, 896px"
+        />
 
         <div className="grid gap-8 lg:grid-cols-2">
           <div className="rounded-2xl border border-red-200/60 bg-red-50/50 p-8">
@@ -311,12 +343,44 @@ export function LandingFeatures() {
       <div className="mx-auto max-w-6xl">
         <div className="mb-12 text-center">
           <h2 className="text-3xl font-bold sm:text-4xl">
-            Le spécialiste de la vente échelonnée
+            Le spécialiste de la vente cash ou échelonnée
           </h2>
           <p className="mt-4 text-muted-foreground">
             Pas un ERP généraliste — un outil métier pour lotisseurs et promoteurs ivoiriens.
           </p>
         </div>
+
+        <div className="mb-12 grid items-center gap-8 overflow-hidden rounded-2xl border bg-gradient-to-br from-emerald-50/80 to-background p-6 lg:grid-cols-2 lg:p-10">
+          <LandingImage
+            src={LANDING_IMAGES.masterplan}
+            alt="Plan de masse interactif avec lots libres, réservés et vendus"
+            className="aspect-[16/10]"
+            sizes="(max-width: 1024px) 100vw, 50vw"
+          />
+          <div>
+            <p className="text-sm font-medium text-primary">Fonction phare</p>
+            <h3 className="mt-2 text-2xl font-bold">Plan de masse visuel</h3>
+            <p className="mt-3 text-muted-foreground">
+              Importez votre plan, visualisez chaque lot en couleur et évitez les ventes en double.
+              Un clic sur un terrain ouvre la fiche bien ou la vente en cours.
+            </p>
+            <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
+              <li className="flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                Lots libres, réservés, vendus en un coup d&apos;œil
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                Terrains et maisons sur le même programme
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                Prix en FCFA, cash ou mensualités
+              </li>
+            </ul>
+          </div>
+        </div>
+
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {FEATURES.map(({ icon: Icon, title, description }) => (
             <div
@@ -340,11 +404,20 @@ export function LandingHowItWorks() {
   return (
     <section id="comment" className="bg-muted/30 px-4 py-20">
       <div className="mx-auto max-w-6xl">
-        <div className="mb-12 text-center">
-          <h2 className="text-3xl font-bold sm:text-4xl">Comment ça marche</h2>
-          <p className="mt-4 text-muted-foreground">
-            Opérationnel en une journée — pas besoin de consultant ni de formation longue.
-          </p>
+        <div className="mb-12 grid items-center gap-10 lg:grid-cols-2">
+          <div>
+            <h2 className="text-3xl font-bold sm:text-4xl">Comment ça marche</h2>
+            <p className="mt-4 text-muted-foreground">
+              Opérationnel en une journée — pas besoin de consultant ni de formation longue.
+              Vos agents encaissent sur le terrain, le gérant suit tout depuis le bureau.
+            </p>
+          </div>
+          <LandingImage
+            src={LANDING_IMAGES.mobileAgent}
+            alt="Agent sur le terrain encaissant un paiement mobile money"
+            className="aspect-[4/3]"
+            sizes="(max-width: 1024px) 100vw, 50vw"
+          />
         </div>
         <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
           {STEPS.map(({ step, title, description }) => (
@@ -373,13 +446,24 @@ export function LandingUseCases() {
           </p>
         </div>
         <div className="grid gap-6 md:grid-cols-3">
-          {USE_CASES.map(({ icon: Icon, title, description }) => (
-            <div key={title} className="rounded-xl border bg-card p-6">
-              <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-                <Icon className="h-5 w-5 text-primary" />
+          {USE_CASES.map(({ icon: Icon, title, description, image, imageAlt }) => (
+            <div key={title} className="overflow-hidden rounded-xl border bg-card shadow-sm">
+              <div className="relative aspect-[16/10] w-full">
+                <Image
+                  src={image}
+                  alt={imageAlt}
+                  fill
+                  sizes="(max-width: 768px) 100vw, 33vw"
+                  className="object-cover"
+                />
               </div>
-              <h3 className="font-semibold">{title}</h3>
-              <p className="mt-2 text-sm text-muted-foreground">{description}</p>
+              <div className="p-6">
+                <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                  <Icon className="h-5 w-5 text-primary" />
+                </div>
+                <h3 className="font-semibold">{title}</h3>
+                <p className="mt-2 text-sm text-muted-foreground">{description}</p>
+              </div>
             </div>
           ))}
         </div>
@@ -480,8 +564,19 @@ export function LandingFAQ() {
 
 export function LandingCTA() {
   return (
-    <section className="px-4 py-20">
-      <div className="mx-auto max-w-4xl rounded-2xl bg-primary px-8 py-12 text-center text-primary-foreground sm:px-12">
+    <section className="relative overflow-hidden px-4 py-20">
+      <div className="absolute inset-0 -z-10">
+        <Image
+          src={LANDING_IMAGES.hero}
+          alt=""
+          fill
+          className="object-cover opacity-10"
+          sizes="100vw"
+          aria-hidden
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-background via-background/95 to-background/80" />
+      </div>
+      <div className="mx-auto max-w-4xl rounded-2xl bg-primary px-8 py-12 text-center text-primary-foreground shadow-xl sm:px-12">
         <h2 className="text-3xl font-bold sm:text-4xl">
           Prêt à sécuriser vos ventes ?
         </h2>
@@ -518,7 +613,7 @@ export function LandingFooter() {
               Gestion immobilière — Côte d&apos;Ivoire
             </p>
             <p className="mt-2 text-xs text-muted-foreground">
-              Vente échelonnée · Terrains & VEFA · FCFA
+              Vente cash ou échelonnée · Terrains & VEFA · FCFA
             </p>
           </div>
           <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-sm text-muted-foreground sm:grid-cols-3">
