@@ -37,7 +37,11 @@ export default async function EncaissementsPage({ searchParams }: PageProps) {
           </p>
         </div>
         {session.profile.role !== "agent" && (
-          <AgentFilter agents={agents} currentAgentId={agentId ?? undefined} />
+          <AgentFilter
+            agents={agents}
+            currentAgentId={agentId ?? undefined}
+            basePath="/dashboard/encaissements"
+          />
         )}
       </div>
 

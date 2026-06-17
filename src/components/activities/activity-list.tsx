@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Check } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { toggleActivityDoneAction } from "@/lib/actions/activities";
@@ -9,10 +11,17 @@ import { formatDate } from "@/lib/format";
 import { ACTIVITY_TYPE_LABELS, type Activity, type ActivityType } from "@/types/entities";
 
 interface ActivityListProps {
-  activities: Array<Activity & { client?: { full_name: string } | null }>;
+  activities: Array<Activity & { client?: { full_name: string; id?: string } | null }>;
+  emptyMessage?: string;
 }
 
-export function ActivityList({ activities }: ActivityListProps) {
+function isOverdue(dueAt: string | null): boolean {
+  if (!dueAt) return false;
+  const today = new Date().toISOString().slice(0, 10);
+  return dueAt.slice(0, 10) < today;
+}
+
+export function ActivityList({ activities, emptyMessage }: ActivityListProps) {
   const router = useRouter();
 
   const handleDone = async (id: string) => {
@@ -21,29 +30,65 @@ export function ActivityList({ activities }: ActivityListProps) {
   };
 
   if (activities.length === 0) {
-    return <Card><CardContent className="py-8 text-center text-muted-foreground">Rien à faire aujourd&apos;hui.</CardContent></Card>;
+    return (
+      <Card>
+        <CardContent className="py-8 text-center text-muted-foreground">
+          {emptyMessage ?? "Aucune relance pour cette sélection."}
+        </CardContent>
+      </Card>
+    );
   }
 
   return (
     <div className="space-y-2">
-      {activities.map((a) => (
-        <Card key={a.id}>
-          <CardContent className="flex items-center justify-between p-4">
-            <div>
-              <p className="font-medium">
-                {ACTIVITY_TYPE_LABELS[a.type as ActivityType]} — {a.client?.full_name ?? "Client"}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                {a.due_at ? formatDate(a.due_at) : "—"}
-                {a.note && ` · ${a.note}`}
-              </p>
-            </div>
-            <Button size="sm" variant="outline" onClick={() => handleDone(a.id)}>
-              <Check className="h-4 w-4" />Fait
-            </Button>
-          </CardContent>
-        </Card>
-      ))}
+      {activities.map((a) => {
+        const overdue = !a.done && isOverdue(a.due_at);
+        const clientId = a.client_id ?? a.client?.id;
+
+        return (
+          <Card key={a.id} className={overdue ? "border-red-200 bg-red-50/30" : undefined}>
+            <CardContent className="flex items-center justify-between gap-3 p-4">
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="font-medium">
+                    {ACTIVITY_TYPE_LABELS[a.type as ActivityType]} —{" "}
+                    {clientId ? (
+                      <Link
+                        href={`/dashboard/clients/${clientId}`}
+                        className="text-primary hover:underline"
+                      >
+                        {a.client?.full_name ?? "Client"}
+                      </Link>
+                    ) : (
+                      (a.client?.full_name ?? "Client")
+                    )}
+                  </p>
+                  {overdue && (
+                    <Badge variant="vendu" className="text-[10px]">
+                      En retard
+                    </Badge>
+                  )}
+                  {a.done && (
+                    <Badge variant="secondary" className="text-[10px]">
+                      Terminé
+                    </Badge>
+                  )}
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {a.due_at ? formatDate(a.due_at) : "—"}
+                  {a.note && ` · ${a.note}`}
+                </p>
+              </div>
+              {!a.done && (
+                <Button size="sm" variant="outline" onClick={() => handleDone(a.id)}>
+                  <Check className="h-4 w-4" />
+                  Fait
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        );
+      })}
     </div>
   );
 }

@@ -1,10 +1,22 @@
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus, Handshake, AlertTriangle, Calendar, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { getDeals } from "@/lib/actions/deals";
+import { DealFilters } from "@/components/deals/deal-filters";
+import { DealStatusSummary } from "@/components/deals/deal-status-summary";
+import { KpiStatCard } from "@/components/dashboard/kpi-stat-card";
+import { PaymentScheduleList } from "@/components/dashboard/payment-schedule-list";
+import { getDashboardKPIs } from "@/lib/actions/dashboard";
+import {
+  getDealsList,
+  getDealStatusCounts,
+  type DealListFilters,
+} from "@/lib/actions/deals";
+import { getOrganizationAgents } from "@/lib/actions/clients";
+import { requireSession } from "@/lib/auth";
 import { formatFCFA, formatDate } from "@/lib/format";
+import type { Deal } from "@/types/database";
 
 const STATUS_LABELS = {
   en_cours: "En cours",
@@ -12,8 +24,32 @@ const STATUS_LABELS = {
   annule: "Annulé",
 } as const;
 
-export default async function DealsPage() {
-  const deals = await getDeals();
+interface PageProps {
+  searchParams: Promise<{ q?: string; status?: string; agent?: string }>;
+}
+
+export default async function DealsPage({ searchParams }: PageProps) {
+  const session = await requireSession();
+  const params = await searchParams;
+
+  const filters: DealListFilters = {
+    q: params.q,
+    status: params.status as Deal["status"] | undefined,
+    agent: params.agent,
+  };
+
+  const isManager = session.profile.role !== "agent";
+  const agentId =
+    session.profile.role === "agent" ? session.userId : (params.agent ?? null);
+
+  const [deals, counts, kpis, agents] = await Promise.all([
+    getDealsList({ ...filters, agent: agentId ?? filters.agent }),
+    getDealStatusCounts(),
+    getDashboardKPIs(agentId),
+    isManager ? getOrganizationAgents() : Promise.resolve([]),
+  ]);
+
+  const hasFilters = Boolean(params.q || params.status || params.agent);
 
   return (
     <div className="space-y-6">
@@ -23,12 +59,86 @@ export default async function DealsPage() {
           <p className="text-muted-foreground">Paiement échelonné terrain & maison</p>
         </div>
         <Button asChild>
-          <Link href="/dashboard/deals/nouveau"><Plus className="h-4 w-4" />Nouvelle vente</Link>
+          <Link href="/dashboard/deals/nouveau">
+            <Plus className="h-4 w-4" />
+            Nouvelle vente
+          </Link>
         </Button>
       </div>
 
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <KpiStatCard
+          title="Ventes actives"
+          value={String(counts.en_cours)}
+          icon={Handshake}
+        />
+        <KpiStatCard title="Soldées" value={String(counts.solde)} subtitle="Terminées" />
+        <KpiStatCard
+          title="Reste à encaisser"
+          value={formatFCFA(kpis.total_remaining)}
+          icon={Wallet}
+        />
+        <KpiStatCard
+          title="Échéances en retard"
+          value={String(kpis.overdue_count)}
+          subtitle={formatFCFA(kpis.overdue_amount)}
+          icon={AlertTriangle}
+          valueClassName="text-red-600"
+          alert={kpis.overdue_count > 0}
+          href="/dashboard/encaissements"
+        />
+      </div>
+
+      <DealStatusSummary
+        en_cours={counts.en_cours}
+        solde={counts.solde}
+        annule={counts.annule}
+      />
+
+      <DealFilters
+        q={params.q}
+        status={params.status}
+        agent={params.agent}
+        agents={isManager ? agents : []}
+      />
+
+      <p className="text-sm text-muted-foreground">
+        {deals.length} vente{deals.length !== 1 ? "s" : ""} affichée
+        {deals.length !== 1 ? "s" : ""}
+        {hasFilters ? " (filtres actifs)" : ` sur ${counts.total}`}
+      </p>
+
+      {kpis.overdue_count > 0 && (
+        <Card className="border-red-200 bg-red-50/40">
+          <CardContent className="space-y-3 p-4">
+            <div className="flex items-center gap-2 text-sm font-medium text-red-800">
+              <Calendar className="h-4 w-4" />
+              {kpis.overdue_count} échéance{kpis.overdue_count !== 1 ? "s" : ""} en retard
+            </div>
+            <PaymentScheduleList
+              items={kpis.overdue_schedules.slice(0, 5)}
+              variant="overdue"
+              emptyMessage="Aucune échéance en retard."
+            />
+          </CardContent>
+        </Card>
+      )}
+
       {deals.length === 0 ? (
-        <Card><CardContent className="py-12 text-center text-muted-foreground">Aucune vente.</CardContent></Card>
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+            <p className="text-muted-foreground">
+              {hasFilters
+                ? "Aucune vente ne correspond à vos filtres."
+                : "Aucune vente enregistrée pour le moment."}
+            </p>
+            {!hasFilters && (
+              <Button asChild className="mt-4">
+                <Link href="/dashboard/deals/nouveau">Créer votre première vente</Link>
+              </Button>
+            )}
+          </CardContent>
+        </Card>
       ) : (
         <div className="space-y-2">
           {deals.map((d) => (
@@ -38,10 +148,16 @@ export default async function DealsPage() {
                   <div>
                     <p className="font-semibold">{d.property?.title ?? "Bien"}</p>
                     <p className="text-sm text-muted-foreground">
-                      {d.client?.full_name} · {formatFCFA(Number(d.total_amount))} · {formatDate(d.created_at)}
+                      {d.client?.full_name} · {formatFCFA(Number(d.total_amount))} ·{" "}
+                      {formatDate(d.created_at)}
+                      {d.agent?.full_name && isManager && ` · ${d.agent.full_name}`}
                     </p>
                   </div>
-                  <Badge variant={d.status === "solde" ? "libre" : d.status === "annule" ? "vendu" : "reserve"}>
+                  <Badge
+                    variant={
+                      d.status === "solde" ? "libre" : d.status === "annule" ? "vendu" : "reserve"
+                    }
+                  >
                     {STATUS_LABELS[d.status]}
                   </Badge>
                 </CardContent>

@@ -56,6 +56,10 @@ export function getPlanById(id: string | null | undefined): PricingPlan {
   return PRICING_PLANS.find((p) => p.id === id) ?? PRICING_PLANS[0];
 }
 
+export function getMaxAgentsForPlan(plan: string | null | undefined): number | null {
+  return plan === "starter" ? 3 : null;
+}
+
 export function formatFcfa(amount: number): string {
   return new Intl.NumberFormat("fr-CI").format(amount);
 }

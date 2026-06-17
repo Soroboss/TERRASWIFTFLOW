@@ -21,12 +21,100 @@ export interface ClientInput {
 }
 
 export async function getClients(): Promise<Client[]> {
-  const insforge = await createClient();
-  const { data, error } = await insforge.database
-    .from("clients")
-    .select("*")
-    .order("created_at", { ascending: false });
+  return getClientsList();
+}
 
+export interface ClientListFilters {
+  q?: string;
+  source?: ClientSource;
+  diaspora?: "oui" | "non";
+  agent?: string;
+}
+
+export interface ClientStats {
+  total: number;
+  diaspora: number;
+  newThisMonth: number;
+  withActiveDeal: number;
+  bySource: Record<string, number>;
+}
+
+export async function getClientStats(): Promise<ClientStats> {
+  const insforge = await createClient();
+  const monthStart = new Date();
+  monthStart.setDate(1);
+  monthStart.setHours(0, 0, 0, 0);
+
+  const [
+    totalResult,
+    diasporaResult,
+    newMonthResult,
+    activeDealsResult,
+    sourcesResult,
+  ] = await Promise.all([
+    insforge.database.from("clients").select("id", { count: "exact", head: true }),
+    insforge.database
+      .from("clients")
+      .select("id", { count: "exact", head: true })
+      .eq("is_diaspora", true),
+    insforge.database
+      .from("clients")
+      .select("id", { count: "exact", head: true })
+      .gte("created_at", monthStart.toISOString()),
+    insforge.database
+      .from("deals")
+      .select("client_id")
+      .eq("status", "en_cours"),
+    insforge.database.from("clients").select("source"),
+  ]);
+
+  if (totalResult.error) throw new Error(totalResult.error.message);
+  if (diasporaResult.error) throw new Error(diasporaResult.error.message);
+  if (newMonthResult.error) throw new Error(newMonthResult.error.message);
+  if (activeDealsResult.error) throw new Error(activeDealsResult.error.message);
+  if (sourcesResult.error) throw new Error(sourcesResult.error.message);
+
+  const bySource: Record<string, number> = {};
+  for (const row of sourcesResult.data ?? []) {
+    const key = (row.source as string | null) ?? "non_renseigne";
+    bySource[key] = (bySource[key] ?? 0) + 1;
+  }
+
+  const uniqueClientsWithDeal = new Set(
+    (activeDealsResult.data ?? []).map((d) => d.client_id as string)
+  );
+
+  return {
+    total: totalResult.count ?? 0,
+    diaspora: diasporaResult.count ?? 0,
+    newThisMonth: newMonthResult.count ?? 0,
+    withActiveDeal: uniqueClientsWithDeal.size,
+    bySource,
+  };
+}
+
+export async function getClientsList(filters?: ClientListFilters): Promise<Client[]> {
+  const insforge = await createClient();
+  let query = insforge.database.from("clients").select("*").order("created_at", { ascending: false });
+
+  if (filters?.source) {
+    query = query.eq("source", filters.source);
+  }
+  if (filters?.diaspora === "oui") {
+    query = query.eq("is_diaspora", true);
+  }
+  if (filters?.diaspora === "non") {
+    query = query.eq("is_diaspora", false);
+  }
+  if (filters?.agent) {
+    query = query.eq("assigned_agent_id", filters.agent);
+  }
+  if (filters?.q?.trim()) {
+    const term = filters.q.trim();
+    query = query.or(`full_name.ilike.%${term}%,phone.ilike.%${term}%`);
+  }
+
+  const { data, error } = await query;
   if (error) throw new Error(error.message);
   return (data ?? []) as Client[];
 }

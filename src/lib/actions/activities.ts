@@ -8,22 +8,168 @@ import type { Activity, ActivityType } from "@/types/entities";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-export async function getTodayActivities(agentId?: string): Promise<Activity[]> {
-  const insforge = await createClient();
+export type ActivityView = "pending" | "overdue" | "today" | "upcoming" | "done";
+
+export interface ActivityListFilters {
+  view?: ActivityView;
+  type?: ActivityType;
+  agent?: string;
+}
+
+export interface ActivityStats {
+  pending: number;
+  overdue: number;
+  today: number;
+  upcoming: number;
+  doneThisMonth: number;
+  byType: Record<ActivityType, number>;
+}
+
+function todayBounds() {
   const today = new Date().toISOString().slice(0, 10);
+  return {
+    today,
+    todayStart: `${today}T00:00:00`,
+    todayEnd: `${today}T23:59:59`,
+  };
+}
+
+export async function getActivityStats(agentId?: string): Promise<ActivityStats> {
+  const insforge = await createClient();
+  const { todayStart, todayEnd } = todayBounds();
+  const monthStart = new Date();
+  monthStart.setDate(1);
+  monthStart.setHours(0, 0, 0, 0);
+
+  let pendingQ = insforge.database
+    .from("activities")
+    .select("id", { count: "exact", head: true })
+    .eq("done", false)
+    .lte("due_at", todayEnd);
+  let overdueQ = insforge.database
+    .from("activities")
+    .select("id", { count: "exact", head: true })
+    .eq("done", false)
+    .lt("due_at", todayStart);
+  let todayQ = insforge.database
+    .from("activities")
+    .select("id", { count: "exact", head: true })
+    .eq("done", false)
+    .gte("due_at", todayStart)
+    .lte("due_at", todayEnd);
+  let upcomingQ = insforge.database
+    .from("activities")
+    .select("id", { count: "exact", head: true })
+    .eq("done", false)
+    .gt("due_at", todayEnd);
+  let doneMonthQ = insforge.database
+    .from("activities")
+    .select("id", { count: "exact", head: true })
+    .eq("done", true)
+    .gte("due_at", monthStart.toISOString());
+  let pendingRowsQ = insforge.database
+    .from("activities")
+    .select("type")
+    .eq("done", false)
+    .lte("due_at", todayEnd);
+
+  if (agentId) {
+    pendingQ = pendingQ.eq("agent_id", agentId);
+    overdueQ = overdueQ.eq("agent_id", agentId);
+    todayQ = todayQ.eq("agent_id", agentId);
+    upcomingQ = upcomingQ.eq("agent_id", agentId);
+    doneMonthQ = doneMonthQ.eq("agent_id", agentId);
+    pendingRowsQ = pendingRowsQ.eq("agent_id", agentId);
+  }
+
+  const [pending, overdue, todayCount, upcoming, doneMonth, pendingRows] = await Promise.all([
+    pendingQ,
+    overdueQ,
+    todayQ,
+    upcomingQ,
+    doneMonthQ,
+    pendingRowsQ,
+  ]);
+
+  if (pending.error) throw new Error(pending.error.message);
+  if (overdue.error) throw new Error(overdue.error.message);
+  if (todayCount.error) throw new Error(todayCount.error.message);
+  if (upcoming.error) throw new Error(upcoming.error.message);
+  if (doneMonth.error) throw new Error(doneMonth.error.message);
+  if (pendingRows.error) throw new Error(pendingRows.error.message);
+
+  const byType: Record<ActivityType, number> = { appel: 0, visite: 0, relance: 0 };
+  for (const row of pendingRows.data ?? []) {
+    const type = row.type as ActivityType;
+    if (type in byType) byType[type] += 1;
+  }
+
+  return {
+    pending: pending.count ?? 0,
+    overdue: overdue.count ?? 0,
+    today: todayCount.count ?? 0,
+    upcoming: upcoming.count ?? 0,
+    doneThisMonth: doneMonth.count ?? 0,
+    byType,
+  };
+}
+
+export async function getActivitiesList(filters?: ActivityListFilters): Promise<Activity[]> {
+  const insforge = await createClient();
+  const view = filters?.view ?? "pending";
+  const { today, todayStart, todayEnd } = todayBounds();
 
   let query = insforge.database
     .from("activities")
-    .select("*, client:clients(full_name)")
-    .eq("done", false)
-    .lte("due_at", `${today}T23:59:59`)
-    .order("due_at");
+    .select("*, client:clients(full_name, id)")
+    .order("due_at", { ascending: view === "done" ? false : true });
 
-  if (agentId) {
-    query = query.eq("agent_id", agentId);
+  if (filters?.type) {
+    query = query.eq("type", filters.type);
+  }
+  if (filters?.agent) {
+    query = query.eq("agent_id", filters.agent);
+  }
+
+  switch (view) {
+    case "overdue":
+      query = query.eq("done", false).lt("due_at", todayStart);
+      break;
+    case "today":
+      query = query
+        .eq("done", false)
+        .gte("due_at", todayStart)
+        .lte("due_at", todayEnd);
+      break;
+    case "upcoming":
+      query = query.eq("done", false).gt("due_at", todayEnd);
+      break;
+    case "done":
+      query = query.eq("done", true);
+      break;
+    default:
+      query = query.eq("done", false).lte("due_at", todayEnd);
+      break;
   }
 
   const { data, error } = await query;
+  if (error) throw new Error(error.message);
+  return (data ?? []) as Activity[];
+}
+
+export async function getTodayActivities(agentId?: string): Promise<Activity[]> {
+  return getActivitiesList({ view: "pending", agent: agentId });
+}
+
+export async function getActivitiesByClientId(clientId: string): Promise<Activity[]> {
+  const insforge = await createClient();
+  const { data, error } = await insforge.database
+    .from("activities")
+    .select("*, client:clients(full_name)")
+    .eq("client_id", clientId)
+    .order("due_at", { ascending: false })
+    .limit(10);
+
   if (error) throw new Error(error.message);
   return (data ?? []) as Activity[];
 }

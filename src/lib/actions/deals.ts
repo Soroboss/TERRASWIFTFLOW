@@ -21,10 +21,98 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 export async function getDeals(): Promise<DealWithRelations[]> {
+  return getDealsList();
+}
+
+export type DealStatus = Deal["status"];
+
+export interface DealListFilters {
+  q?: string;
+  status?: DealStatus;
+  agent?: string;
+}
+
+export interface DealStatusCounts {
+  total: number;
+  en_cours: number;
+  solde: number;
+  annule: number;
+}
+
+export async function getDealStatusCounts(): Promise<DealStatusCounts> {
+  const insforge = await createClient();
+
+  const [total, enCours, solde, annule] = await Promise.all([
+    insforge.database.from("deals").select("id", { count: "exact", head: true }),
+    insforge.database
+      .from("deals")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "en_cours"),
+    insforge.database
+      .from("deals")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "solde"),
+    insforge.database
+      .from("deals")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "annule"),
+  ]);
+
+  if (total.error) throw new Error(total.error.message);
+  if (enCours.error) throw new Error(enCours.error.message);
+  if (solde.error) throw new Error(solde.error.message);
+  if (annule.error) throw new Error(annule.error.message);
+
+  return {
+    total: total.count ?? 0,
+    en_cours: enCours.count ?? 0,
+    solde: solde.count ?? 0,
+    annule: annule.count ?? 0,
+  };
+}
+
+export async function getDealsList(filters?: DealListFilters): Promise<DealWithRelations[]> {
+  const insforge = await createClient();
+  let query = insforge.database
+    .from("deals")
+    .select("*, property:properties(title, reference), client:clients(full_name, phone), agent:profiles(full_name)")
+    .order("created_at", { ascending: false });
+
+  if (filters?.status) {
+    query = query.eq("status", filters.status);
+  }
+  if (filters?.agent) {
+    query = query.eq("agent_id", filters.agent);
+  }
+
+  const { data, error } = await query;
+  if (error) throw new Error(error.message);
+
+  let deals = (data ?? []) as DealWithRelations[];
+
+  if (filters?.q?.trim()) {
+    const term = filters.q.trim().toLowerCase();
+    deals = deals.filter((d) => {
+      const clientName = d.client?.full_name?.toLowerCase() ?? "";
+      const propertyTitle = d.property?.title?.toLowerCase() ?? "";
+      const propertyRef = d.property?.reference?.toLowerCase() ?? "";
+      return (
+        clientName.includes(term) ||
+        propertyTitle.includes(term) ||
+        propertyRef.includes(term)
+      );
+    });
+  }
+
+  return deals;
+}
+
+export async function getDealsByClientId(clientId: string): Promise<DealWithRelations[]> {
   const insforge = await createClient();
   const { data, error } = await insforge.database
     .from("deals")
-    .select("*, property:properties(*), client:clients(*), agent:profiles(*)")
+    .select("*, property:properties(title, reference), client:clients(full_name)")
+    .eq("client_id", clientId)
     .order("created_at", { ascending: false });
 
   if (error) throw new Error(error.message);
