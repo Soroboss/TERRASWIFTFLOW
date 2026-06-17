@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { WhatsAppRelancePanel } from "@/components/activities/whatsapp-relance-panel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,16 +15,26 @@ import { ACTIVITY_TYPE_LABELS, type ActivityType } from "@/types/entities";
 
 interface ActivityFormProps {
   clients: Client[];
+  defaultClientId?: string;
+  organizationName?: string;
+  agentName?: string;
 }
 
-export function ActivityForm({ clients }: ActivityFormProps) {
+export function ActivityForm({
+  clients,
+  defaultClientId = "",
+  organizationName = "Notre agence",
+  agentName = "Votre conseiller",
+}: ActivityFormProps) {
   const router = useRouter();
-  const [clientId, setClientId] = useState("");
+  const [clientId, setClientId] = useState(defaultClientId);
   const [type, setType] = useState<ActivityType>("relance");
   const [note, setNote] = useState("");
   const [dueAt, setDueAt] = useState(new Date().toISOString().slice(0, 10));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const selectedClient = clients.find((c) => c.id === clientId);
 
   const handleSubmit = async () => {
     setLoading(true);
@@ -75,6 +86,17 @@ export function ActivityForm({ clients }: ActivityFormProps) {
           <Label htmlFor="note">Note</Label>
           <Textarea id="note" value={note} onChange={(e) => setNote(e.target.value)} />
         </div>
+
+        {selectedClient?.phone && (
+          <WhatsAppRelancePanel
+            variant="full"
+            phone={selectedClient.phone}
+            clientName={selectedClient.full_name}
+            organizationName={organizationName}
+            agentName={agentName}
+            dueDate={dueAt}
+          />
+        )}
 
         <div className="flex gap-3">
           <Button onClick={handleSubmit} disabled={loading || !clientId}>

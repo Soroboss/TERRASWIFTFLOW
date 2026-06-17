@@ -127,7 +127,7 @@ export async function getActivitiesList(filters?: ActivityListFilters): Promise<
 
   let query = insforge.database
     .from("activities")
-    .select("*, client:clients(full_name, id)")
+    .select("*, client:clients(full_name, id, phone)")
     .order("due_at", { ascending: view === "done" ? false : true });
 
   const agentFilter = scopeId ?? filters?.agent;
@@ -173,7 +173,7 @@ export async function getActivitiesByClientId(clientId: string): Promise<Activit
   const insforge = await createClient();
   const { data, error } = await insforge.database
     .from("activities")
-    .select("*, client:clients(full_name)")
+    .select("*, client:clients(full_name, phone)")
     .eq("client_id", clientId)
     .order("due_at", { ascending: false })
     .limit(10);
@@ -186,7 +186,7 @@ export async function getActivities(): Promise<Activity[]> {
   const insforge = await createClient();
   const { data, error } = await insforge.database
     .from("activities")
-    .select("*, client:clients(full_name)")
+    .select("*, client:clients(full_name, phone)")
     .order("due_at", { ascending: true });
 
   if (error) throw new Error(error.message);

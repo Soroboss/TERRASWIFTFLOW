@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Check } from "lucide-react";
+import { WhatsAppRelancePanel } from "@/components/activities/whatsapp-relance-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -11,7 +12,11 @@ import { formatDate } from "@/lib/format";
 import { ACTIVITY_TYPE_LABELS, type Activity, type ActivityType } from "@/types/entities";
 
 interface ActivityListProps {
-  activities: Array<Activity & { client?: { full_name: string; id?: string } | null }>;
+  activities: Array<
+    Activity & { client?: { full_name: string; id?: string; phone?: string } | null }
+  >;
+  organizationName?: string;
+  agentName?: string;
   emptyMessage?: string;
 }
 
@@ -21,7 +26,12 @@ function isOverdue(dueAt: string | null): boolean {
   return dueAt.slice(0, 10) < today;
 }
 
-export function ActivityList({ activities, emptyMessage }: ActivityListProps) {
+export function ActivityList({
+  activities,
+  organizationName = "Notre agence",
+  agentName = "Votre conseiller",
+  emptyMessage,
+}: ActivityListProps) {
   const router = useRouter();
 
   const handleDone = async (id: string) => {
@@ -44,47 +54,63 @@ export function ActivityList({ activities, emptyMessage }: ActivityListProps) {
       {activities.map((a) => {
         const overdue = !a.done && isOverdue(a.due_at);
         const clientId = a.client_id ?? a.client?.id;
+        const clientPhone = a.client?.phone;
+        const clientName = a.client?.full_name ?? "Client";
 
         return (
           <Card key={a.id} className={overdue ? "border-red-200 bg-red-50/30" : undefined}>
-            <CardContent className="flex items-center justify-between gap-3 p-4">
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="font-medium">
-                    {ACTIVITY_TYPE_LABELS[a.type as ActivityType]} —{" "}
-                    {clientId ? (
-                      <Link
-                        href={`/dashboard/clients/${clientId}`}
-                        className="text-primary hover:underline"
-                      >
-                        {a.client?.full_name ?? "Client"}
-                      </Link>
-                    ) : (
-                      (a.client?.full_name ?? "Client")
+            <CardContent className="p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-medium">
+                      {ACTIVITY_TYPE_LABELS[a.type as ActivityType]} —{" "}
+                      {clientId ? (
+                        <Link
+                          href={`/dashboard/clients/${clientId}`}
+                          className="text-primary hover:underline"
+                        >
+                          {clientName}
+                        </Link>
+                      ) : (
+                        clientName
+                      )}
+                    </p>
+                    {overdue && (
+                      <Badge variant="vendu" className="text-[10px]">
+                        En retard
+                      </Badge>
                     )}
+                    {a.done && (
+                      <Badge variant="secondary" className="text-[10px]">
+                        Terminé
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    {a.due_at ? formatDate(a.due_at) : "—"}
+                    {a.note && ` · ${a.note}`}
                   </p>
-                  {overdue && (
-                    <Badge variant="vendu" className="text-[10px]">
-                      En retard
-                    </Badge>
-                  )}
-                  {a.done && (
-                    <Badge variant="secondary" className="text-[10px]">
-                      Terminé
-                    </Badge>
-                  )}
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  {a.due_at ? formatDate(a.due_at) : "—"}
-                  {a.note && ` · ${a.note}`}
-                </p>
+                {!a.done && (
+                  <div className="flex shrink-0 flex-wrap gap-2">
+                    {clientPhone && (
+                      <WhatsAppRelancePanel
+                        variant="compact"
+                        phone={clientPhone}
+                        clientName={clientName}
+                        organizationName={organizationName}
+                        agentName={agentName}
+                        dueDate={a.due_at}
+                      />
+                    )}
+                    <Button size="sm" variant="outline" onClick={() => handleDone(a.id)}>
+                      <Check className="h-4 w-4" />
+                      Fait
+                    </Button>
+                  </div>
+                )}
               </div>
-              {!a.done && (
-                <Button size="sm" variant="outline" onClick={() => handleDone(a.id)}>
-                  <Check className="h-4 w-4" />
-                  Fait
-                </Button>
-              )}
             </CardContent>
           </Card>
         );

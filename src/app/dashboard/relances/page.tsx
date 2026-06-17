@@ -14,6 +14,7 @@ import {
 import { getOrganizationAgents } from "@/lib/actions/clients";
 import { requireSession } from "@/lib/auth";
 import { canViewAllData } from "@/lib/auth/permissions";
+import { parseCompanyProfile } from "@/types/organization-profile";
 import type { ActivityType } from "@/types/entities";
 
 const VIEW_LABELS: Record<ActivityView, string> = {
@@ -32,6 +33,9 @@ export default async function RelancesPage({ searchParams }: PageProps) {
   const session = await requireSession();
   const params = await searchParams;
   const view = (params.view as ActivityView) || "pending";
+  const companyProfile = parseCompanyProfile(session.organization.company_profile);
+  const organizationName = companyProfile.legal_name ?? session.organization.name;
+  const agentName = session.profile.full_name;
 
   const filters: ActivityListFilters = {
     view,
@@ -55,7 +59,9 @@ export default async function RelancesPage({ searchParams }: PageProps) {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold">Relances</h1>
-          <p className="text-muted-foreground">Appels, visites et relances clients</p>
+          <p className="text-muted-foreground">
+            Appels, visites et relances — messages WhatsApp préparés
+          </p>
         </div>
         <Button asChild>
           <Link href="/dashboard/relances/nouveau">
@@ -111,6 +117,8 @@ export default async function RelancesPage({ searchParams }: PageProps) {
 
       <ActivityList
         activities={activities}
+        organizationName={organizationName}
+        agentName={agentName}
         emptyMessage={
           view === "overdue"
             ? "Aucune relance en retard — bravo !"

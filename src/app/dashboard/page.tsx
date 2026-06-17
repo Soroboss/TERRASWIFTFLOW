@@ -4,6 +4,7 @@ import { getDashboardPageData } from "@/lib/actions/dashboard";
 import { getOverviewStats } from "@/lib/dashboard/overview";
 import { formatDate, formatFCFA } from "@/lib/format";
 import { formatFcfa, getPlanById } from "@/lib/pricing";
+import { parseCompanyProfile } from "@/types/organization-profile";
 import { DashboardOverviewPanel } from "@/components/dashboard/dashboard-overview-panel";
 import { KpiStatCard } from "@/components/dashboard/kpi-stat-card";
 import { QuickActions } from "@/components/dashboard/quick-actions";
@@ -57,6 +58,8 @@ export default async function DashboardPage() {
       : null;
 
   const planInfo = getPlanById(organization.plan);
+  const companyProfile = parseCompanyProfile(organization.company_profile);
+  const organizationDisplayName = companyProfile.legal_name ?? organization.name;
 
   return (
     <div className="space-y-6">
@@ -190,7 +193,11 @@ export default async function DashboardPage() {
               Voir tout
             </Link>
           </div>
-          <ActivityList activities={activities.slice(0, 5)} />
+          <ActivityList
+            activities={activities.slice(0, 5)}
+            organizationName={organizationDisplayName}
+            agentName={profile.full_name}
+          />
         </div>
 
         <div>
