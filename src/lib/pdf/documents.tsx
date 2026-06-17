@@ -21,6 +21,7 @@ const styles = StyleSheet.create({
 
 export interface ReceiptPDFProps {
   organizationName: string;
+  organizationFooter?: string;
   receiptNumber: string;
   paidAt: string;
   clientName: string;
@@ -70,7 +71,7 @@ export function ReceiptPDFDocument(props: ReceiptPDFProps) {
         </Text>
 
         <Text style={styles.footer}>
-          Document généré par TerraSwiftFlow — Côte d&apos;Ivoire
+          {props.organizationFooter ?? props.organizationName} — Document généré par TerraSwiftFlow
         </Text>
       </Page>
     </Document>
@@ -85,6 +86,7 @@ export interface ContractScheduleLine {
 
 export interface ContractPDFProps {
   organizationName: string;
+  organizationFooter?: string;
   clientName: string;
   clientPhone: string;
   propertyTitle: string;
@@ -135,6 +137,9 @@ export function ContractPDFDocument(props: ContractPDFProps) {
         <Text style={{ fontSize: 9, marginTop: 8 }}>
           Date de signature : {props.signedAt}
         </Text>
+        {props.organizationFooter && (
+          <Text style={{ fontSize: 9, marginTop: 8 }}>{props.organizationFooter}</Text>
+        )}
 
         <Text style={styles.footer}>
           TerraSwiftFlow enregistre et assure le suivi des documents et informations fournis par le

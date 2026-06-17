@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { addOrganizationTeamMemberAction } from "@/lib/actions/team";
 import type { UserRole } from "@/types/database";
 
-export function AddOrganizationMemberForm() {
+export function AddOrganizationMemberForm({ disabled = false }: { disabled?: boolean }) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [fullName, setFullName] = useState("");
@@ -101,8 +101,8 @@ export function AddOrganizationMemberForm() {
           <option value="manager">Manager</option>
         </select>
       </div>
-      <Button onClick={handleSubmit} disabled={loading || !email || !fullName}>
-        {loading ? "Création…" : "Créer le collaborateur"}
+      <Button onClick={handleSubmit} disabled={loading || disabled || !email || !fullName}>
+        {disabled ? "Limite du plan atteinte" : loading ? "Création…" : "Créer le collaborateur"}
       </Button>
       <p className="text-xs text-muted-foreground">
         Le collaborateur se connecte sur /login avec cet e-mail. Compte activé

@@ -32,6 +32,27 @@ export async function getOrganizationTeam(): Promise<Profile[]> {
   return (data ?? []) as Profile[];
 }
 
+export interface OrganizationTeamStats {
+  total: number;
+  active: number;
+  inactive: number;
+  owners: number;
+  managers: number;
+  agents: number;
+}
+
+export async function getOrganizationTeamStats(): Promise<OrganizationTeamStats> {
+  const team = await getOrganizationTeam();
+  return {
+    total: team.length,
+    active: team.filter((m) => m.active).length,
+    inactive: team.filter((m) => !m.active).length,
+    owners: team.filter((m) => m.role === "owner").length,
+    managers: team.filter((m) => m.role === "manager").length,
+    agents: team.filter((m) => m.role === "agent").length,
+  };
+}
+
 export async function addOrganizationTeamMemberAction(
   email: string,
   role: UserRole,

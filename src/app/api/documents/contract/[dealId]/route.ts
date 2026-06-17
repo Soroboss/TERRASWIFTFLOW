@@ -1,6 +1,10 @@
 import { formatDate } from "@/lib/format";
 import { createClient } from "@/lib/insforge/server";
 import { ContractPDFDocument } from "@/lib/pdf/documents";
+import {
+  formatOrganizationDocumentFooter,
+  parseCompanyProfile,
+} from "@/types/organization-profile";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { NextResponse } from "next/server";
 
@@ -20,7 +24,7 @@ export async function GET(
   const { data: deal } = await insforge.database
     .from("deals")
     .select(
-      "*, client:clients(full_name, phone), property:properties(title, reference), organization:organizations(name)"
+      "*, client:clients(full_name, phone), property:properties(title, reference), organization:organizations(name, company_profile)"
     )
     .eq("id", dealId)
     .single();
@@ -37,11 +41,15 @@ export async function GET(
 
   const client = deal.client as { full_name: string; phone: string } | null;
   const property = deal.property as { title: string; reference: string } | null;
-  const org = deal.organization as { name: string } | null;
+  const org = deal.organization as { name: string; company_profile?: unknown } | null;
+  const orgName = org?.name ?? "TerraSwiftFlow";
+  const companyProfile = parseCompanyProfile(org?.company_profile);
+  const displayName = companyProfile.legal_name ?? orgName;
 
   const buffer = await renderToBuffer(
     ContractPDFDocument({
-      organizationName: org?.name ?? "TerraSwiftFlow",
+      organizationName: displayName,
+      organizationFooter: formatOrganizationDocumentFooter(orgName, companyProfile),
       clientName: client?.full_name ?? "—",
       clientPhone: client?.phone ?? "—",
       propertyTitle: property?.title ?? "—",

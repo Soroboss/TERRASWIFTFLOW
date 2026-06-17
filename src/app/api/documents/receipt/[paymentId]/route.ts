@@ -4,6 +4,10 @@ import { createClient } from "@/lib/insforge/server";
 import { ReceiptPDFDocument } from "@/lib/pdf/documents";
 import { PAYMENT_METHOD_LABELS } from "@/types/entities";
 import type { PaymentMethod } from "@/types/database";
+import {
+  formatOrganizationDocumentFooter,
+  parseCompanyProfile,
+} from "@/types/organization-profile";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { NextResponse } from "next/server";
 
@@ -23,7 +27,7 @@ export async function GET(
   const { data: payment } = await insforge.database
     .from("payments")
     .select(
-      "*, deal:deals(client:clients(full_name), property:properties(title)), organization:organizations(name)"
+      "*, deal:deals(client:clients(full_name), property:properties(title)), organization:organizations(name, company_profile)"
     )
     .eq("id", paymentId)
     .single();
@@ -36,11 +40,14 @@ export async function GET(
     client?: { full_name: string };
     property?: { title: string };
   } | null;
-  const org = payment.organization as { name: string } | null;
+  const org = payment.organization as { name: string; company_profile?: unknown } | null;
+  const orgName = org?.name ?? "TerraSwiftFlow";
+  const companyProfile = parseCompanyProfile(org?.company_profile);
 
   const buffer = await renderToBuffer(
     ReceiptPDFDocument({
-      organizationName: org?.name ?? "TerraSwiftFlow",
+      organizationName: companyProfile.legal_name ?? orgName,
+      organizationFooter: formatOrganizationDocumentFooter(orgName, companyProfile),
       receiptNumber: payment.receipt_number as string,
       paidAt: formatDate(payment.paid_at as string),
       clientName: deal?.client?.full_name ?? "—",

@@ -100,3 +100,42 @@ export const activitySchema = z.object({
   note: z.string().trim().max(2000).nullable().optional(),
   due_at: z.string().trim().min(1, "Date d'échéance requise."),
 });
+
+export const organizationSettingsSchema = z.object({
+  name: z.string().trim().min(2, "Nom d'entreprise requis.").max(120),
+  billing_email: z
+    .union([z.string().trim().email("E-mail invalide."), z.literal(""), z.null()])
+    .optional()
+    .transform((v) => (v === "" || v === undefined ? null : v)),
+  profile: z.object({
+    logo_url: z
+      .union([z.string().url(), z.literal(""), z.null()])
+      .optional()
+      .transform((v) => (v === "" || v === undefined ? null : v)),
+    legal_name: z.string().trim().max(160).nullable().optional(),
+    tagline: z.string().trim().max(200).nullable().optional(),
+    contact_email: z
+      .union([z.string().trim().email(), z.literal(""), z.null()])
+      .optional()
+      .transform((v) => (v === "" || v === undefined ? null : v)),
+    contact_phone: z
+      .union([z.string().trim().min(8).max(20), z.literal(""), z.null()])
+      .optional()
+      .transform((v) => (v === "" || v === undefined ? null : v)),
+    whatsapp: z
+      .union([z.string().trim().min(8).max(20), z.literal(""), z.null()])
+      .optional()
+      .transform((v) => (v === "" || v === undefined ? null : v)),
+    address: z.string().trim().max(300).nullable().optional(),
+    city: z.string().trim().max(80).nullable().optional(),
+    country: z.string().trim().max(80).nullable().optional(),
+    rccm: z.string().trim().max(80).nullable().optional(),
+    niu: z.string().trim().max(80).nullable().optional(),
+    bank_name: z.string().trim().max(120).nullable().optional(),
+    rib: z.string().trim().max(80).nullable().optional(),
+    website: z
+      .union([z.string().trim().url(), z.literal(""), z.null()])
+      .optional()
+      .transform((v) => (v === "" || v === undefined ? null : v)),
+  }),
+});

@@ -19,6 +19,7 @@ export interface Organization {
   suspended_at?: string | null;
   billing_email?: string | null;
   notes?: string | null;
+  company_profile?: Record<string, unknown>;
   created_at: string;
 }
 

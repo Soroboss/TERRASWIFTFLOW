@@ -11,6 +11,7 @@ import {
   LogOut,
   Map,
   Menu,
+  Settings,
   UserCog,
   Users,
   Wallet,
@@ -39,6 +40,7 @@ interface DashboardNavProps {
 }
 
 const TEAM_NAV_ITEM = { href: "/dashboard/equipe", label: "Équipe", icon: UserCog };
+const SETTINGS_NAV_ITEM = { href: "/dashboard/parametres", label: "Paramètres", icon: Settings };
 
 export function DashboardNav({ organizationName, userName, canManageTeam }: DashboardNavProps) {
   const pathname = usePathname();
@@ -57,7 +59,7 @@ export function DashboardNav({ organizationName, userName, canManageTeam }: Dash
       </div>
 
       <nav className="flex flex-1 flex-col gap-1">
-        {[...NAV_ITEMS, ...(canManageTeam ? [TEAM_NAV_ITEM] : [])].map(({ href, label, icon: Icon }) => (
+        {[...NAV_ITEMS, ...(canManageTeam ? [TEAM_NAV_ITEM, SETTINGS_NAV_ITEM] : [])].map(({ href, label, icon: Icon }) => (
           <Link
             key={href}
             href={href}
