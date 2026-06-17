@@ -3,8 +3,11 @@ import { notFound } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MasterplanImageUpload } from "@/components/plans/masterplan-image-upload";
 import { statusColorClass } from "@/components/biens/property-status-badge";
+import { LotStatusSummary } from "@/components/dashboard/lot-status-summary";
+import { MasterplanLotsGrid } from "@/components/dashboard/masterplan-lots-grid";
 import { getMasterplan, getMasterplanLots } from "@/lib/actions/masterplans";
 import { getDealByPropertyId } from "@/lib/actions/deals";
+import { countPropertiesByStatus } from "@/lib/property-status";
 import { formatFCFA } from "@/lib/format";
 import type { PropertyStatus } from "@/types/database";
 
@@ -27,13 +30,14 @@ export default async function PlanDetailPage({ params }: PageProps) {
 
   if (!masterplan) notFound();
 
-  const libres = lots.filter((l) => l.status === "libre").length;
-  const reserves = lots.filter((l) => l.status === "reserve").length;
-  const vendus = lots.filter((l) => l.status === "vendu").length;
+  const { libres, reserves, vendus } = countPropertiesByStatus(lots);
 
+  const lotHrefById = new Map<string, string>();
   const lotsWithDeals = await Promise.all(
     lots.map(async (lot) => {
       const deal = await getDealByPropertyId(lot.id);
+      const href = deal ? `/dashboard/deals/${deal.id}` : `/dashboard/biens/${lot.id}`;
+      lotHrefById.set(lot.id, href);
       return { lot, deal };
     })
   );
@@ -42,35 +46,16 @@ export default async function PlanDetailPage({ params }: PageProps) {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">{masterplan.name}</h1>
-        <p className="text-muted-foreground">Plan de masse — vente échelonnée par lot</p>
+        <p className="text-muted-foreground">Plan de masse — vente cash ou échelonnée par lot</p>
       </div>
 
-      <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
-        <Card>
-          <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold text-emerald-600">{libres}</p>
-            <p className="text-xs text-muted-foreground">Libres</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold text-amber-600">{reserves}</p>
-            <p className="text-xs text-muted-foreground">Réservés</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold text-red-600">{vendus}</p>
-            <p className="text-xs text-muted-foreground">Vendus</p>
-          </CardContent>
-        </Card>
-        <Card className="col-span-3 sm:col-span-1">
-          <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold">{lots.length}/{masterplan.total_lots}</p>
-            <p className="text-xs text-muted-foreground">Lots rattachés</p>
-          </CardContent>
-        </Card>
-      </div>
+      <LotStatusSummary libres={libres} reserves={reserves} vendus={vendus} />
+
+      <MasterplanLotsGrid
+        lots={lots}
+        totalLots={masterplan.total_lots}
+        getHref={(lot) => lotHrefById.get(lot.id) ?? `/dashboard/biens/${lot.id}`}
+      />
 
       <Card>
         <CardHeader>
@@ -83,7 +68,7 @@ export default async function PlanDetailPage({ params }: PageProps) {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Grille des lots</CardTitle>
+          <CardTitle className="text-lg">Liste des lots</CardTitle>
         </CardHeader>
         <CardContent>
           {lots.length === 0 ? (
@@ -95,15 +80,15 @@ export default async function PlanDetailPage({ params }: PageProps) {
               {lotsWithDeals.map(({ lot, deal }) => (
                 <Link
                   key={lot.id}
-                  href={deal ? `/dashboard/deals/${deal.id}` : `/dashboard/biens/${lot.id}`}
+                  href={lotHrefById.get(lot.id) ?? `/dashboard/biens/${lot.id}`}
                   className="flex items-start gap-3 rounded-lg border p-3 transition-colors hover:bg-accent"
                 >
                   <div className={`mt-1 h-4 w-4 shrink-0 rounded-full ${statusColorClass(lot.status)}`} />
                   <div className="min-w-0 flex-1">
-                    <p className="font-medium truncate">
+                    <p className="truncate font-medium">
                       Lot {lot.lot_number ?? lot.reference}
                     </p>
-                    <p className="text-xs text-muted-foreground truncate">{lot.title}</p>
+                    <p className="truncate text-xs text-muted-foreground">{lot.title}</p>
                     <p className="text-xs font-medium">
                       {STATUS_LABELS[lot.status]} · {formatFCFA(lot.price_total)}
                     </p>
@@ -117,12 +102,6 @@ export default async function PlanDetailPage({ params }: PageProps) {
               ))}
             </div>
           )}
-
-          <div className="mt-4 flex flex-wrap gap-4 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-emerald-500" /> Libre</span>
-            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-amber-500" /> Réservé</span>
-            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-red-500" /> Vendu</span>
-          </div>
         </CardContent>
       </Card>
     </div>

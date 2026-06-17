@@ -351,9 +351,23 @@ export function LandingFeatures() {
         </div>
 
         <div className="mb-12 grid items-center gap-8 overflow-hidden rounded-2xl border bg-gradient-to-br from-emerald-50/80 to-background p-6 lg:grid-cols-2 lg:p-10">
+          <div className="order-2 lg:order-1">
+            <p className="text-sm font-medium text-primary">Aperçu réel du tableau de bord</p>
+            <h3 className="mt-2 text-2xl font-bold">Ce que vous voyez ici, c&apos;est l&apos;application</h3>
+            <p className="mt-3 text-muted-foreground">
+              Le mockup ci-contre utilise le même composant que votre espace connecté : compteurs
+              libres / réservés / vendus, grille colorée et encaissements du mois.
+            </p>
+          </div>
+          <div className="order-1 lg:order-2">
+            <LandingDashboardMockup />
+          </div>
+        </div>
+
+        <div className="mb-12 grid items-center gap-8 overflow-hidden rounded-2xl border bg-gradient-to-br from-emerald-50/80 to-background p-6 lg:grid-cols-2 lg:p-10">
           <LandingImage
             src={LANDING_IMAGES.masterplan}
-            alt="Plan de masse interactif avec lots libres, réservés et vendus"
+            alt="Illustration d'un lotissement avec parcelles"
             className="aspect-[16/10]"
             sizes="(max-width: 1024px) 100vw, 50vw"
           />
@@ -361,8 +375,8 @@ export function LandingFeatures() {
             <p className="text-sm font-medium text-primary">Fonction phare</p>
             <h3 className="mt-2 text-2xl font-bold">Plan de masse visuel</h3>
             <p className="mt-3 text-muted-foreground">
-              Importez votre plan, visualisez chaque lot en couleur et évitez les ventes en double.
-              Un clic sur un terrain ouvre la fiche bien ou la vente en cours.
+              Même vue que dans votre tableau de bord : lots en couleur, statistiques et encaissements
+              du mois. Un clic sur un lot ouvre la fiche bien ou la vente en cours.
             </p>
             <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
               <li className="flex items-center gap-2">

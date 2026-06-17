@@ -1,16 +1,20 @@
 import Link from "next/link";
 import { requireSession } from "@/lib/auth";
 import { getDashboardKPIs } from "@/lib/actions/dashboard";
-import { getTodayActivities } from "@/lib/actions/activities";
+import { getMasterplanLots, getMasterplans } from "@/lib/actions/masterplans";
 import { getProperties } from "@/lib/actions/properties";
+import { getTodayActivities } from "@/lib/actions/activities";
+import { getDealByPropertyId } from "@/lib/actions/deals";
+import { countPropertiesByStatus } from "@/lib/property-status";
 import { formatDate, formatFCFA } from "@/lib/format";
 import { formatFcfa, getPlanById } from "@/lib/pricing";
+import { DashboardOverviewPanel } from "@/components/dashboard/dashboard-overview-panel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ActivityList } from "@/components/activities/activity-list";
 import {
   Building2,
   Calendar,
-  Map,
+  Map as MapIcon,
   Users,
   Handshake,
   Bell,
@@ -21,24 +25,39 @@ export default async function DashboardPage() {
   const { organization, profile } = session;
   const agentFilter = profile.role === "agent" ? profile.id : null;
 
-  const [kpis, activities, properties] = await Promise.all([
+  const [kpis, activities, properties, masterplans] = await Promise.all([
     getDashboardKPIs(agentFilter),
     getTodayActivities(agentFilter ?? undefined),
     getProperties(),
+    getMasterplans(),
   ]);
 
-  const trialDaysLeft = organization.trial_ends_at
-    ? Math.max(
-        0,
-        Math.ceil(
-          (new Date(organization.trial_ends_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
-        )
-      )
-    : null;
+  const primaryMasterplan = masterplans[0] ?? null;
+  const masterplanLots = primaryMasterplan
+    ? await getMasterplanLots(primaryMasterplan.id)
+    : [];
 
-  const libres = properties.filter((p) => p.status === "libre").length;
-  const reserves = properties.filter((p) => p.status === "reserve").length;
-  const vendus = properties.filter((p) => p.status === "vendu").length;
+  const overviewLots = masterplanLots.length > 0 ? masterplanLots : properties;
+  const { libres, reserves, vendus } = countPropertiesByStatus(overviewLots);
+
+  const lotHrefById = new Map<string, string>();
+  for (const lot of overviewLots) {
+    const deal = await getDealByPropertyId(lot.id);
+    lotHrefById.set(
+      lot.id,
+      deal ? `/dashboard/deals/${deal.id}` : `/dashboard/biens/${lot.id}`
+    );
+  }
+
+  const trialDaysLeft =
+    organization.subscription_status === "trial" && organization.trial_ends_at
+      ? Math.max(
+          0,
+          Math.ceil(
+            (new Date(organization.trial_ends_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+          )
+        )
+      : null;
 
   const planInfo = getPlanById(organization.plan);
 
@@ -47,7 +66,7 @@ export default async function DashboardPage() {
       <div>
         <h1 className="text-2xl font-bold">Tableau de bord</h1>
         <p className="text-muted-foreground">
-          Vente terrain & maison en paiement échelonné — {session.profile.full_name}
+          Vente cash ou échelonnée — {session.profile.full_name}
         </p>
       </div>
 
@@ -59,6 +78,29 @@ export default async function DashboardPage() {
           {" · "}
           Puis {formatFcfa(planInfo.priceMonthly)} FCFA/mois
         </div>
+      )}
+
+      <DashboardOverviewPanel
+        organizationName={organization.name}
+        programName={primaryMasterplan?.name ?? null}
+        trialDaysLeft={trialDaysLeft}
+        libres={libres}
+        reserves={reserves}
+        vendus={vendus}
+        lots={overviewLots}
+        totalLots={primaryMasterplan?.total_lots}
+        collectedThisMonth={kpis.collected_this_month}
+        getLotHref={(lot) => lotHrefById.get(lot.id) ?? `/dashboard/biens/${lot.id}`}
+        programHref={primaryMasterplan ? `/dashboard/plans/${primaryMasterplan.id}` : "/dashboard/plans"}
+      />
+
+      {!primaryMasterplan && (
+        <p className="text-sm text-muted-foreground">
+          <Link href="/dashboard/plans/nouveau" className="text-primary hover:underline">
+            Créez un plan de masse
+          </Link>{" "}
+          pour afficher vos lots comme sur la présentation commerciale.
+        </p>
       )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -133,7 +175,7 @@ export default async function DashboardPage() {
         <div>
           <div className="mb-3 flex items-center justify-between">
             <h2 className="flex items-center gap-2 text-lg font-semibold">
-              <Map className="h-5 w-5" />Prochains versements
+              <MapIcon className="h-5 w-5" />Prochains versements
             </h2>
             <Link href="/dashboard/encaissements" className="text-sm text-primary hover:underline">Encaissements</Link>
           </div>
