@@ -18,7 +18,8 @@ export function LandingDashboardMockup() {
       lots={DEMO_LOTS}
       totalLots={DEMO_LOTS.length}
       collectedThisMonth={DEMO_COLLECTED_THIS_MONTH}
-      shadow="lg"
+      className="border-0 p-0 shadow-none"
+      shadow="sm"
     />
   );
 }
