@@ -585,6 +585,7 @@ export async function getActiveDealsByPropertyIds(
       id: string;
       property_id: string;
       status: string;
+      agent_id?: string | null;
       client?: { full_name: string } | { full_name: string }[] | null;
     }
   >
@@ -596,6 +597,7 @@ export async function getActiveDealsByPropertyIds(
       id: string;
       property_id: string;
       status: string;
+      agent_id?: string | null;
       client?: { full_name: string } | { full_name: string }[] | null;
     }
   >();
@@ -605,7 +607,7 @@ export async function getActiveDealsByPropertyIds(
   const insforge = await createClient();
   const { data, error } = await insforge.database
     .from("deals")
-    .select("id, property_id, status, client:clients(full_name)")
+    .select("id, property_id, status, agent_id, client:clients(full_name)")
     .in("property_id", uniqueIds)
     .in("status", ["en_cours", "solde"]);
 
@@ -616,6 +618,7 @@ export async function getActiveDealsByPropertyIds(
       id: string;
       property_id: string;
       status: string;
+      agent_id?: string | null;
       client?: { full_name: string } | { full_name: string }[] | null;
     };
     result.set(deal.property_id, deal);

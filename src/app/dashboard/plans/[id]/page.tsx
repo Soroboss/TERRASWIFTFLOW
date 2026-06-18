@@ -9,7 +9,7 @@ import { getMasterplan, getMasterplanLots } from "@/lib/actions/masterplans";
 import { requireSession } from "@/lib/auth";
 import { canManageCatalog, canViewAllData } from "@/lib/auth/permissions";
 import { getActiveDealsByPropertyIds } from "@/lib/actions/deals";
-import { buildLotHrefMap, dealClientName } from "@/lib/dashboard/overview";
+import { buildLotHrefMap, dealClientName, resolveLotHref } from "@/lib/dashboard/overview";
 import { countPropertiesByStatus } from "@/lib/property-status";
 import { formatFCFA } from "@/lib/format";
 import type { PropertyStatus } from "@/types/database";
@@ -40,9 +40,11 @@ export default async function PlanDetailPage({ params }: PageProps) {
   const dealsByProperty = await getActiveDealsByPropertyIds(lots.map((lot) => lot.id));
   const lotHrefById = buildLotHrefMap(
     lots.map((lot) => lot.id),
-    dealsByProperty
+    dealsByProperty,
+    { role: session.profile.role, userId: session.userId }
   );
 
+  const viewer = { role: session.profile.role, userId: session.userId };
   const mapLots: MasterplanMapLot[] = lots.map((lot) => ({
     id: lot.id,
     status: lot.status,
@@ -51,7 +53,7 @@ export default async function PlanDetailPage({ params }: PageProps) {
     title: lot.title,
     price_total: lot.price_total,
     map_zone: lot.map_zone ?? null,
-    href: lotHrefById.get(lot.id) ?? `/dashboard/biens/${lot.id}`,
+    href: resolveLotHref(lot.id, dealsByProperty.get(lot.id), viewer),
   }));
 
   const zonesCount = mapLots.filter((l) => l.map_zone).length;

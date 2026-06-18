@@ -5,6 +5,7 @@ import { buildLotHrefMap } from "@/lib/dashboard/overview";
 import { getActiveDealsByPropertyIds } from "@/lib/actions/deals";
 import { getTenantHeadlineCounts } from "@/lib/actions/tenant-summary";
 import { getTodayActivities } from "@/lib/actions/activities";
+import { requireSession } from "@/lib/auth";
 import {
   getMasterplansWithLots,
   getOverviewLotProperties,
@@ -199,6 +200,7 @@ export interface DashboardPageData {
 export async function getDashboardPageData(
   agentId?: string | null
 ): Promise<DashboardPageData> {
+  const session = await requireSession();
   const [kpis, activities, masterplansWithLots, propertyCounts, headlineCounts] =
     await Promise.all([
       getDashboardKPIs(agentId),
@@ -219,7 +221,8 @@ export async function getDashboardPageData(
   );
   const lotHrefById = buildLotHrefMap(
     overviewLots.map((lot) => lot.id),
-    dealsByProperty
+    dealsByProperty,
+    { role: session.profile.role, userId: session.userId }
   );
 
   return {

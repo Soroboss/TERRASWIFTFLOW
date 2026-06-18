@@ -6,9 +6,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DeletePropertyButton } from "@/components/biens/delete-property-button";
 import { PropertyStatusBadge } from "@/components/biens/property-status-badge";
 import { PropertyPhotoUpload } from "@/components/biens/property-photo-upload";
+import { getActiveDealsByPropertyIds } from "@/lib/actions/deals";
 import { getProperty } from "@/lib/actions/properties";
 import { requireSession } from "@/lib/auth";
 import { canDeleteCatalog, canManageCatalog } from "@/lib/auth/permissions";
+import { dealClientName, resolveLotHref } from "@/lib/dashboard/overview";
 import { formatFCFA, formatDate } from "@/lib/format";
 
 interface PageProps {
@@ -23,8 +25,37 @@ export default async function BienDetailPage({ params }: PageProps) {
   const property = await getProperty(id);
   if (!property) notFound();
 
+  const dealsByProperty = await getActiveDealsByPropertyIds([id]);
+  const activeDeal = dealsByProperty.get(id);
+  const dealHref = activeDeal
+    ? resolveLotHref(id, activeDeal, {
+        role: session.profile.role,
+        userId: session.userId,
+      })
+    : null;
+  const showDealLink = Boolean(dealHref?.startsWith("/dashboard/deals/"));
+
   return (
     <div className="space-y-6">
+      {activeDeal && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50/80 px-4 py-3 text-sm text-amber-950">
+          {showDealLink ? (
+            <>
+              Vente {activeDeal.status === "solde" ? "soldée" : "en cours"}
+              {dealClientName(activeDeal.client) && (
+                <> — {dealClientName(activeDeal.client)}</>
+              )}
+              {" · "}
+              <Link href={dealHref!} className="font-medium text-primary hover:underline">
+                Ouvrir la fiche vente →
+              </Link>
+            </>
+          ) : (
+            <>Ce lot est réservé ou vendu — vente gérée par un autre agent.</>
+          )}
+        </div>
+      )}
+
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <div className="mb-2 flex items-center gap-2">

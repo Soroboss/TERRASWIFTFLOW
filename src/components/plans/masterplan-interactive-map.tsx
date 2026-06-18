@@ -221,7 +221,9 @@ export function MasterplanInteractiveMap({
 
   const handlePointerDown = (e: React.PointerEvent) => {
     const target = e.target as Element;
-    const onZone = target.tagName.toLowerCase() === "polygon";
+    const onZone =
+      target.tagName.toLowerCase() === "polygon" ||
+      Boolean(target.closest("a[href^='/dashboard']"));
 
     if (mode === "edit" && tool === "pencil" && selectedLotId && !onZone) {
       const pt = getNormalizedPoint(e.clientX, e.clientY);
@@ -288,9 +290,7 @@ export function MasterplanInteractiveMap({
     e.stopPropagation();
     if (mode === "edit") {
       onSelectLot?.(lot.id);
-      return;
     }
-    router.push(lot.href);
   };
 
   const handleDeleteZone = async () => {
@@ -443,20 +443,35 @@ export function MasterplanInteractiveMap({
 
               return (
                 <g key={lot.id}>
-                  <polygon
-                    points={points}
-                    fill={isHovered || isSelected ? colors.hover : colors.fill}
-                    stroke={colors.stroke}
-                    strokeWidth={isSelected ? 0.6 : 0.35}
-                    vectorEffect="non-scaling-stroke"
-                    className={cn(
-                      "pointer-events-auto cursor-pointer transition-[fill,stroke-width] duration-200",
-                      lot.status === "libre" && mode === "view" && "animate-pulse [animation-duration:3s]"
-                    )}
-                    onMouseEnter={() => setHoveredId(lot.id)}
-                    onMouseLeave={() => setHoveredId(null)}
-                    onClick={(e) => handleZoneClick(lot, e)}
-                  />
+                  {mode === "view" ? (
+                    <a href={lot.href} onClick={(e) => handleZoneClick(lot, e)}>
+                      <polygon
+                        points={points}
+                        fill={isHovered || isSelected ? colors.hover : colors.fill}
+                        stroke={colors.stroke}
+                        strokeWidth={isSelected ? 0.6 : 0.35}
+                        vectorEffect="non-scaling-stroke"
+                        className={cn(
+                          "cursor-pointer transition-[fill,stroke-width] duration-200",
+                          lot.status === "libre" && "animate-pulse [animation-duration:3s]"
+                        )}
+                        onMouseEnter={() => setHoveredId(lot.id)}
+                        onMouseLeave={() => setHoveredId(null)}
+                      />
+                    </a>
+                  ) : (
+                    <polygon
+                      points={points}
+                      fill={isHovered || isSelected ? colors.hover : colors.fill}
+                      stroke={colors.stroke}
+                      strokeWidth={isSelected ? 0.6 : 0.35}
+                      vectorEffect="non-scaling-stroke"
+                      className="pointer-events-auto cursor-pointer transition-[fill,stroke-width] duration-200"
+                      onMouseEnter={() => setHoveredId(lot.id)}
+                      onMouseLeave={() => setHoveredId(null)}
+                      onClick={(e) => handleZoneClick(lot, e)}
+                    />
+                  )}
                   {mode === "edit" && lot.map_zone && (
                     <LotZoneLabel lot={lot} zone={lot.map_zone} isSelected={isSelected} />
                   )}

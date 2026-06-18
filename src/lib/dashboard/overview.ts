@@ -1,24 +1,45 @@
 import type { MasterplanLotSummary } from "@/lib/actions/masterplans";
+import { canViewAllData } from "@/lib/auth/permissions";
 import { countPropertiesByStatus } from "@/lib/property-status";
-import type { PropertyStatus } from "@/types/database";
+import type { PropertyStatus, UserRole } from "@/types/database";
 
 export type ActiveDealByProperty = {
   id: string;
   property_id: string;
   status: string;
+  agent_id?: string | null;
   client?: { full_name: string } | { full_name: string }[] | null;
 };
 
+export interface LotHrefViewer {
+  role: UserRole;
+  userId: string;
+}
+
+export function resolveLotHref(
+  propertyId: string,
+  deal: ActiveDealByProperty | undefined,
+  viewer: LotHrefViewer
+): string {
+  const propertyHref = `/dashboard/biens/${propertyId}`;
+  if (!deal?.id) return propertyHref;
+
+  const canAccessDeal =
+    canViewAllData(viewer.role) || deal.agent_id === viewer.userId;
+
+  return canAccessDeal ? `/dashboard/deals/${deal.id}` : propertyHref;
+}
+
 export function buildLotHrefMap(
   propertyIds: string[],
-  dealsByPropertyId: Map<string, ActiveDealByProperty>
+  dealsByPropertyId: Map<string, ActiveDealByProperty>,
+  viewer: LotHrefViewer
 ): Map<string, string> {
   const hrefs = new Map<string, string>();
   for (const propertyId of propertyIds) {
-    const deal = dealsByPropertyId.get(propertyId);
     hrefs.set(
       propertyId,
-      deal ? `/dashboard/deals/${deal.id}` : `/dashboard/biens/${propertyId}`
+      resolveLotHref(propertyId, dealsByPropertyId.get(propertyId), viewer)
     );
   }
   return hrefs;
