@@ -1,10 +1,10 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LotListingCard } from "@/components/dashboard/lot-listing-card";
-import { MasterplanImageUpload } from "@/components/plans/masterplan-image-upload";
 import { LotStatusSummary } from "@/components/dashboard/lot-status-summary";
 import { MasterplanLotsGrid } from "@/components/dashboard/masterplan-lots-grid";
+import { MasterplanMapSection } from "@/components/plans/masterplan-map-section";
+import type { MasterplanMapLot } from "@/components/plans/masterplan-interactive-map";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getMasterplan, getMasterplanLots } from "@/lib/actions/masterplans";
 import { requireSession } from "@/lib/auth";
 import { canManageCatalog, canViewAllData } from "@/lib/auth/permissions";
@@ -43,11 +43,26 @@ export default async function PlanDetailPage({ params }: PageProps) {
     dealsByProperty
   );
 
+  const mapLots: MasterplanMapLot[] = lots.map((lot) => ({
+    id: lot.id,
+    status: lot.status,
+    lot_number: lot.lot_number,
+    reference: lot.reference,
+    title: lot.title,
+    price_total: lot.price_total,
+    map_zone: lot.map_zone ?? null,
+    href: lotHrefById.get(lot.id) ?? `/dashboard/biens/${lot.id}`,
+  }));
+
+  const zonesCount = mapLots.filter((l) => l.map_zone).length;
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">{masterplan.name}</h1>
-        <p className="text-muted-foreground">Plan de masse — vente cash ou échelonnée par lot</p>
+        <p className="text-muted-foreground">
+          Plan de masse interactif — cliquez sur chaque parcelle pour accéder au lot ou à la vente
+        </p>
       </div>
 
       <LotStatusSummary
@@ -57,24 +72,22 @@ export default async function PlanDetailPage({ params }: PageProps) {
         showSold={showSoldLots}
       />
 
+      <MasterplanMapSection
+        masterplanId={masterplan.id}
+        imageUrl={masterplan.image_url}
+        lots={mapLots}
+        canEdit={canManage}
+        showSoldLots={showSoldLots}
+      />
+
       <MasterplanLotsGrid
         lots={lots}
         totalLots={masterplan.total_lots}
         columns={4}
         getHref={(lot) => lotHrefById.get(lot.id) ?? `/dashboard/biens/${lot.id}`}
         showSoldInLegend={showSoldLots}
+        title={zonesCount > 0 ? "Vue synthétique des lots" : "Plan de masse"}
       />
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Image du plan de masse</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {canManage && (
-            <MasterplanImageUpload masterplanId={masterplan.id} imageUrl={masterplan.image_url} />
-          )}
-        </CardContent>
-      </Card>
 
       <Card>
         <CardHeader>

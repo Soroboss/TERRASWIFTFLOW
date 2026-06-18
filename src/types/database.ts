@@ -5,6 +5,18 @@ export type SubscriptionStatus = "trial" | "active" | "past_due" | "cancelled";
 export type UserRole = "owner" | "manager" | "agent";
 export type PropertyType = "terrain" | "maison";
 export type PropertyStatus = "libre" | "reserve" | "vendu";
+export type MapZoneRect = {
+  type: "rect";
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+};
+export type MapZonePolygon = {
+  type: "polygon";
+  points: [number, number][];
+};
+export type MapZone = MapZoneRect | MapZonePolygon;
 export type DealStatus = "en_cours" | "solde" | "annule";
 export type PaymentMode = "cash" | "echelonne";
 export type ContractType = "acd" | "lettre_villageoise" | "approbation_travaux";
@@ -62,6 +74,7 @@ export interface Property {
   photos: string[];
   lot_number: string | null;
   masterplan_id: string | null;
+  map_zone: MapZone | null;
   rooms: number | null;
   construction_status: string | null;
   created_by: string | null;

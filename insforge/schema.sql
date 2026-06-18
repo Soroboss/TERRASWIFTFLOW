@@ -83,6 +83,7 @@ CREATE TABLE properties (
   photos JSONB NOT NULL DEFAULT '[]'::jsonb,
   lot_number TEXT,
   masterplan_id UUID REFERENCES masterplans(id) ON DELETE SET NULL,
+  map_zone JSONB,
   rooms INTEGER,
   construction_status TEXT,
   created_by UUID REFERENCES profiles(id) ON DELETE SET NULL,

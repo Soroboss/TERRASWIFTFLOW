@@ -5,7 +5,8 @@ import { canManageCatalog, canViewAllData } from "@/lib/auth/permissions";
 import { filterLotsForCommercialAgent } from "@/lib/catalog-visibility";
 import { createClient } from "@/lib/insforge/server";
 import { normalizeProperties } from "@/lib/properties";
-import type { Masterplan, Property, PropertyStatus } from "@/types/database";
+import { parseMapZone } from "@/lib/map-zone";
+import type { MapZone, Masterplan, Property, PropertyStatus } from "@/types/database";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -202,4 +203,50 @@ export async function uploadMasterplanImageAction(formData: FormData) {
 
   revalidatePath(`/dashboard/plans/${masterplanId}`);
   return { url: uploadData.url };
+}
+
+export async function updatePropertyMapZoneAction(
+  propertyId: string,
+  mapZone: MapZone | null
+) {
+  const session = await requireSession();
+  if (!canManageCatalog(session.profile.role)) {
+    return { error: "Seuls le propriétaire et les managers peuvent configurer les zones." };
+  }
+
+  const parsed = mapZone === null ? null : parseMapZone(mapZone);
+  if (mapZone !== null && !parsed) {
+    return { error: "Zone invalide." };
+  }
+
+  const insforge = await createClient();
+  const { data: property, error: fetchError } = await insforge.database
+    .from("properties")
+    .select("id, masterplan_id, organization_id")
+    .eq("id", propertyId)
+    .single();
+
+  if (fetchError || !property) {
+    return { error: "Lot introuvable." };
+  }
+
+  if (property.organization_id !== session.profile.organization_id) {
+    return { error: "Accès refusé." };
+  }
+
+  if (!property.masterplan_id) {
+    return { error: "Ce bien n'est pas rattaché à un plan de masse." };
+  }
+
+  const { error: updateError } = await insforge.database
+    .from("properties")
+    .update({ map_zone: parsed })
+    .eq("id", propertyId);
+
+  if (updateError) return { error: updateError.message };
+
+  revalidatePath(`/dashboard/plans/${property.masterplan_id}`);
+  revalidatePath("/dashboard/plans");
+  revalidatePath("/dashboard");
+  return { success: true };
 }
