@@ -65,9 +65,9 @@ export function MasterplanMapSection({
             <Map className="h-5 w-5 text-primary" />
             Plan interactif
           </CardTitle>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground">
             {zonesCount} parcelle{zonesCount !== 1 ? "s" : ""} cliquable{zonesCount !== 1 ? "s" : ""}
-            {canEdit && " · survolez et cliquez pour accéder à la fiche lot ou vente"}
+            {canEdit && " · crayon ou rectangle pour identifier chaque lot sur le plan"}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">

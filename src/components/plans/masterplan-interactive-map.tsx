@@ -6,9 +6,11 @@ import {
   Hand,
   Maximize2,
   Minus,
-  MousePointer2,
+  Pencil,
   Plus,
+  Square,
   Trash2,
+  Undo2,
   ZoomIn,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -16,7 +18,10 @@ import { updatePropertyMapZoneAction } from "@/lib/actions/masterplans";
 import { formatLotNumberReference } from "@/lib/catalog-visibility";
 import {
   MAP_ZONE_STATUS_COLORS,
+  appendStrokePoint,
+  polygonFromStroke,
   rectFromDrag,
+  strokeToPercentPolyline,
   zoneCenter,
   zoneToPercentPoints,
 } from "@/lib/map-zone";
@@ -53,6 +58,8 @@ type DrawState = {
   currentY: number;
 } | null;
 
+type EditTool = "pencil" | "rectangle" | "pan";
+
 const MIN_SCALE = 1;
 const MAX_SCALE = 4;
 
@@ -71,9 +78,11 @@ export function MasterplanInteractiveMap({
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [draw, setDraw] = useState<DrawState>(null);
+  const [pencilStroke, setPencilStroke] = useState<[number, number][]>([]);
+  const [isPencilDrawing, setIsPencilDrawing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [tool, setTool] = useState<"select" | "pan">("select");
+  const [tool, setTool] = useState<EditTool>("pencil");
   const panStart = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null);
 
   const visibleLots = useMemo(
@@ -87,6 +96,10 @@ export function MasterplanInteractiveMap({
   );
 
   const hoveredLot = mappedLots.find((l) => l.id === hoveredId) ?? null;
+  const selectedLot = lots.find((l) => l.id === selectedLotId) ?? null;
+  const selectedLotLabel = selectedLot
+    ? formatLotNumberReference(selectedLot).number ?? selectedLot.title
+    : null;
 
   const previewRect = useMemo(() => {
     if (!draw) return null;
@@ -152,6 +165,27 @@ export function MasterplanInteractiveMap({
     return () => el.removeEventListener("wheel", onWheel);
   }, [zoomBy]);
 
+  const clearPencilStroke = useCallback(() => {
+    setPencilStroke([]);
+    setIsPencilDrawing(false);
+  }, []);
+
+  useEffect(() => {
+    clearPencilStroke();
+    setDraw(null);
+  }, [selectedLotId, tool, clearPencilStroke]);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        clearPencilStroke();
+        setDraw(null);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [clearPencilStroke]);
+
   const saveZone = async (lotId: string, zone: MapZone | null) => {
     setSaving(true);
     setError(null);
@@ -164,11 +198,40 @@ export function MasterplanInteractiveMap({
     router.refresh();
   };
 
+  const finishDrawing = async () => {
+    if (!selectedLotId) return;
+
+    if (tool === "rectangle" && draw) {
+      const zone = rectFromDrag(draw.startX, draw.startY, draw.currentX, draw.currentY);
+      setDraw(null);
+      if (zone) await saveZone(selectedLotId, zone);
+      return;
+    }
+
+    if (tool === "pencil" && pencilStroke.length >= 3) {
+      const zone = polygonFromStroke(pencilStroke);
+      clearPencilStroke();
+      if (zone) await saveZone(selectedLotId, zone);
+      return;
+    }
+
+    clearPencilStroke();
+    setDraw(null);
+  };
+
   const handlePointerDown = (e: React.PointerEvent) => {
     const target = e.target as Element;
     const onZone = target.tagName.toLowerCase() === "polygon";
 
-    if (mode === "edit" && tool === "select" && selectedLotId && !onZone) {
+    if (mode === "edit" && tool === "pencil" && selectedLotId && !onZone) {
+      const pt = getNormalizedPoint(e.clientX, e.clientY);
+      setIsPencilDrawing(true);
+      setPencilStroke([[pt.x, pt.y]]);
+      e.currentTarget.setPointerCapture(e.pointerId);
+      return;
+    }
+
+    if (mode === "edit" && tool === "rectangle" && selectedLotId && !onZone) {
       const pt = getNormalizedPoint(e.clientX, e.clientY);
       setDraw({ startX: pt.x, startY: pt.y, currentX: pt.x, currentY: pt.y });
       e.currentTarget.setPointerCapture(e.pointerId);
@@ -189,6 +252,12 @@ export function MasterplanInteractiveMap({
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
+    if (isPencilDrawing && tool === "pencil") {
+      const pt = getNormalizedPoint(e.clientX, e.clientY);
+      setPencilStroke((prev) => appendStrokePoint(prev, pt.x, pt.y));
+      return;
+    }
+
     if (draw) {
       const pt = getNormalizedPoint(e.clientX, e.clientY);
       setDraw((d) => (d ? { ...d, currentX: pt.x, currentY: pt.y } : null));
@@ -203,11 +272,8 @@ export function MasterplanInteractiveMap({
   };
 
   const handlePointerUp = async (e: React.PointerEvent) => {
-    if (draw && selectedLotId) {
-      const zone = rectFromDrag(draw.startX, draw.startY, draw.currentX, draw.currentY);
-      setDraw(null);
-      if (zone) await saveZone(selectedLotId, zone);
-      return;
+    if ((draw && tool === "rectangle") || (isPencilDrawing && tool === "pencil")) {
+      await finishDrawing();
     }
 
     panStart.current = null;
@@ -251,12 +317,22 @@ export function MasterplanInteractiveMap({
               <Button
                 type="button"
                 size="sm"
-                variant={tool === "select" ? "default" : "outline"}
-                onClick={() => setTool("select")}
+                variant={tool === "pencil" ? "default" : "outline"}
+                onClick={() => setTool("pencil")}
                 className="gap-1.5"
               >
-                <MousePointer2 className="h-4 w-4" />
-                Zone
+                <Pencil className="h-4 w-4" />
+                Crayon
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={tool === "rectangle" ? "default" : "outline"}
+                onClick={() => setTool("rectangle")}
+                className="gap-1.5"
+              >
+                <Square className="h-4 w-4" />
+                Rectangle
               </Button>
               <Button
                 type="button"
@@ -268,6 +344,18 @@ export function MasterplanInteractiveMap({
                 <Hand className="h-4 w-4" />
                 Déplacer
               </Button>
+              {(isPencilDrawing || pencilStroke.length > 0) && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={clearPencilStroke}
+                  className="gap-1.5"
+                >
+                  <Undo2 className="h-4 w-4" />
+                  Annuler trait
+                </Button>
+              )}
               {selectedLotId && (
                 <Button
                   type="button"
@@ -286,6 +374,8 @@ export function MasterplanInteractiveMap({
         </div>
         <p className="text-xs text-muted-foreground">
           {mappedLots.length}/{visibleLots.length} lot{visibleLots.length !== 1 ? "s" : ""} sur le plan
+          {mode === "edit" && tool === "pencil" && " · crayon : dessinez le contour du lot"}
+          {mode === "edit" && tool === "rectangle" && " · tracez un rectangle"}
           {mode === "view" && " · molette pour zoomer · glisser pour naviguer"}
         </p>
       </div>
@@ -294,7 +384,17 @@ export function MasterplanInteractiveMap({
 
       {mode === "edit" && !selectedLotId && (
         <p className="rounded-lg border border-dashed border-primary/30 bg-primary/5 px-3 py-2 text-sm text-primary">
-          Sélectionnez un lot dans la liste, puis tracez un rectangle sur le plan pour le rendre cliquable.
+          Sélectionnez un lot dans la liste, puis dessinez son contour au <strong>crayon</strong> ou en
+          rectangle sur le plan.
+        </p>
+      )}
+
+      {mode === "edit" && selectedLotId && selectedLotLabel && (
+        <p className="rounded-lg border border-primary/20 bg-primary/10 px-3 py-2 text-sm text-primary">
+          Lot en cours : <strong>{selectedLotLabel}</strong>
+          {tool === "pencil"
+            ? " — maintenez clic enfoncé et dessinez le contour de la parcelle"
+            : " — cliquez-glissez pour tracer un rectangle"}
         </p>
       )}
 
@@ -304,7 +404,12 @@ export function MasterplanInteractiveMap({
         style={{ minHeight: "min(70vh, 560px)" }}
       >
         <div
-          className="absolute inset-0 cursor-grab active:cursor-grabbing"
+          className={cn(
+            "absolute inset-0",
+            mode === "edit" && (tool === "pencil" || tool === "rectangle") && selectedLotId
+              ? "cursor-crosshair"
+              : "cursor-grab active:cursor-grabbing"
+          )}
           style={{
             transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})`,
             transformOrigin: "top left",
@@ -337,23 +442,50 @@ export function MasterplanInteractiveMap({
               const points = zoneToPercentPoints(lot.map_zone);
 
               return (
-                <polygon
-                  key={lot.id}
-                  points={points}
-                  fill={isHovered || isSelected ? colors.hover : colors.fill}
-                  stroke={colors.stroke}
-                  strokeWidth={isSelected ? 0.6 : 0.35}
-                  vectorEffect="non-scaling-stroke"
-                  className={cn(
-                    "pointer-events-auto cursor-pointer transition-[fill,stroke-width] duration-200",
-                    lot.status === "libre" && mode === "view" && "animate-pulse [animation-duration:3s]"
+                <g key={lot.id}>
+                  <polygon
+                    points={points}
+                    fill={isHovered || isSelected ? colors.hover : colors.fill}
+                    stroke={colors.stroke}
+                    strokeWidth={isSelected ? 0.6 : 0.35}
+                    vectorEffect="non-scaling-stroke"
+                    className={cn(
+                      "pointer-events-auto cursor-pointer transition-[fill,stroke-width] duration-200",
+                      lot.status === "libre" && mode === "view" && "animate-pulse [animation-duration:3s]"
+                    )}
+                    onMouseEnter={() => setHoveredId(lot.id)}
+                    onMouseLeave={() => setHoveredId(null)}
+                    onClick={(e) => handleZoneClick(lot, e)}
+                  />
+                  {mode === "edit" && lot.map_zone && (
+                    <LotZoneLabel lot={lot} zone={lot.map_zone} isSelected={isSelected} />
                   )}
-                  onMouseEnter={() => setHoveredId(lot.id)}
-                  onMouseLeave={() => setHoveredId(null)}
-                  onClick={(e) => handleZoneClick(lot, e)}
-                />
+                </g>
               );
             })}
+
+            {pencilStroke.length >= 2 && (
+              <>
+                <polyline
+                  points={strokeToPercentPolyline(pencilStroke)}
+                  fill="none"
+                  stroke="#6366f1"
+                  strokeWidth={0.55}
+                  vectorEffect="non-scaling-stroke"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                {pencilStroke.length >= 3 && (
+                  <polygon
+                    points={strokeToPercentPolyline(pencilStroke)}
+                    fill="rgba(99, 102, 241, 0.25)"
+                    stroke="#6366f1"
+                    strokeWidth={0.4}
+                    strokeDasharray="1 0.5"
+                  />
+                )}
+              </>
+            )}
 
             {previewRect && (
               <polygon
@@ -401,6 +533,38 @@ export function MasterplanInteractiveMap({
           ))}
       </div>
     </div>
+  );
+}
+
+function LotZoneLabel({
+  lot,
+  zone,
+  isSelected,
+}: {
+  lot: MasterplanMapLot;
+  zone: MapZone;
+  isSelected: boolean;
+}) {
+  const [cx, cy] = zoneCenter(zone);
+  const { number, reference } = formatLotNumberReference(lot);
+  const label = number ?? lot.title?.slice(0, 8) ?? "Lot";
+
+  return (
+    <text
+      x={cx * 100}
+      y={cy * 100}
+      textAnchor="middle"
+      dominantBaseline="middle"
+      fontSize={isSelected ? 3.2 : 2.6}
+      fontWeight={700}
+      fill={isSelected ? "#1e3a8a" : "#ffffff"}
+      stroke={isSelected ? "#ffffff" : "#0f172a"}
+      strokeWidth={0.15}
+      paintOrder="stroke"
+      className="pointer-events-none select-none"
+    >
+      {reference ? `${label}` : label}
+    </text>
   );
 }
 

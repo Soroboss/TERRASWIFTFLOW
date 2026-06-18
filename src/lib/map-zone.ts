@@ -1,4 +1,4 @@
-import type { MapZone, MapZoneRect } from "@/types/database";
+import type { MapZone, MapZonePolygon, MapZoneRect } from "@/types/database";
 
 const MIN = 0;
 const MAX = 1;
@@ -61,6 +61,40 @@ export function rectFromDrag(
   const h = bottom - top;
   if (w < MIN_RECT_SIZE || h < MIN_RECT_SIZE) return null;
   return { type: "rect", x: left, y: top, w, h };
+}
+
+const MIN_STROKE_POINT_GAP = 0.004;
+
+export function polygonFromStroke(points: [number, number][]): MapZonePolygon | null {
+  if (points.length < 3) return null;
+
+  const xs = points.map((p) => p[0]);
+  const ys = points.map((p) => p[1]);
+  const w = Math.max(...xs) - Math.min(...xs);
+  const h = Math.max(...ys) - Math.min(...ys);
+  if (w < MIN_RECT_SIZE || h < MIN_RECT_SIZE) return null;
+
+  return {
+    type: "polygon",
+    points: points.map(([x, y]) => [clamp01(x), clamp01(y)] as [number, number]),
+  };
+}
+
+export function appendStrokePoint(
+  points: [number, number][],
+  x: number,
+  y: number
+): [number, number][] {
+  const pt: [number, number] = [clamp01(x), clamp01(y)];
+  const last = points[points.length - 1];
+  if (!last) return [pt];
+  const dist = Math.hypot(pt[0] - last[0], pt[1] - last[1]);
+  if (dist < MIN_STROKE_POINT_GAP) return points;
+  return [...points, pt];
+}
+
+export function strokeToPercentPolyline(points: [number, number][]): string {
+  return points.map(([px, py]) => `${px * 100},${py * 100}`).join(" ");
 }
 
 export function zoneToPercentPoints(zone: MapZone): string {

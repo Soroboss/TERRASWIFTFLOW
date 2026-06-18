@@ -18,6 +18,7 @@ import { PRICING_PLANS, TRIAL_DAYS } from "@/lib/pricing";
 import { PricingCard } from "@/components/landing/pricing-card";
 import { LandingAppPreviewBadge } from "@/components/landing/landing-app-preview-badge";
 import { LandingDashboardMockup } from "@/components/landing/landing-dashboard-mockup";
+import { LandingFeatureBlock } from "@/components/landing/landing-feature-block";
 import { LandingImage, LANDING_IMAGES } from "@/components/landing/landing-image";
 import { LandingMasterplanPreview } from "@/components/landing/landing-masterplan-preview";
 import { LandingProductPreview } from "@/components/landing/landing-product-preview";
@@ -359,71 +360,59 @@ export function LandingFeatures() {
           </p>
         </div>
 
-        <div className="mb-12 overflow-hidden rounded-2xl border bg-gradient-to-br from-emerald-50/60 to-background p-6 lg:p-10">
-          <div className="grid items-center gap-8 lg:grid-cols-2 lg:gap-10">
-            <LandingImage
-              src={LANDING_IMAGES.mobileAgent}
-              alt="Agent commercial sur le terrain avec tablette"
-              className="aspect-[4/3]"
-              sizes="(max-width: 1024px) 100vw, 50vw"
-            />
-            <div className="space-y-5">
-              <div>
-                <p className="text-sm font-medium text-primary">Sur le terrain et au bureau</p>
-                <h3 className="mt-2 text-2xl font-bold">Vos équipes, vos clients, vos encaissements</h3>
-                <p className="mt-3 text-muted-foreground">
-                  L&apos;illustration montre le quotidien de vos agents ; ci-dessous, le même écran que
-                  vous aurez une fois connecté — lots colorés, stats et encaissements du mois.
-                </p>
-              </div>
-              <LandingAppPreviewBadge label="Tableau de bord — composant identique à l&apos;app">
-                <LandingProductPreview>
-                  <LandingDashboardMockup />
-                </LandingProductPreview>
-              </LandingAppPreviewBadge>
-            </div>
+        <LandingFeatureBlock
+          imageSrc={LANDING_IMAGES.mobileAgent}
+          imageAlt="Agent commercial sur le terrain avec tablette"
+          gradientClassName="from-emerald-50/60 to-background"
+        >
+          <div>
+            <p className="text-sm font-medium text-primary">Sur le terrain et au bureau</p>
+            <h3 className="mt-2 text-2xl font-bold">Vos équipes, vos clients, vos encaissements</h3>
+            <p className="mt-3 text-muted-foreground">
+              L&apos;illustration montre le quotidien de vos agents ; ci-dessous, le même écran que
+              vous aurez une fois connecté — lots colorés, stats et encaissements du mois.
+            </p>
           </div>
-        </div>
+          <LandingAppPreviewBadge label="Tableau de bord — composant identique à l&apos;app">
+            <LandingProductPreview>
+              <LandingDashboardMockup />
+            </LandingProductPreview>
+          </LandingAppPreviewBadge>
+        </LandingFeatureBlock>
 
-        <div className="mb-12 overflow-hidden rounded-2xl border bg-gradient-to-br from-slate-50/80 to-background p-6 lg:p-10">
-          <div className="grid items-center gap-8 lg:grid-cols-2 lg:gap-10">
-            <LandingImage
-              src={LANDING_IMAGES.masterplan}
-              alt="Plan de masse aérien avec parcelles libres, réservées et vendues"
-              className="aspect-[16/10]"
-              sizes="(max-width: 1024px) 100vw, 50vw"
-            />
-            <div className="space-y-5">
-              <div>
-                <p className="text-sm font-medium text-primary">Fonction phare</p>
-                <h3 className="mt-2 text-2xl font-bold">Plan de masse interactif</h3>
-                <p className="mt-3 text-muted-foreground">
-                  Uploadez votre plan, tracez chaque parcelle et naviguez en un clic. Les couleurs
-                  vert / orange / rouge reflètent le statut réel de chaque lot dans votre programme.
-                </p>
-                <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
-                  <li className="flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
-                    Zones cliquables sur votre image uploadée
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
-                    Zoom, survol et accès fiche lot ou vente
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
-                    Prix en FCFA, cash ou mensualités
-                  </li>
-                </ul>
-              </div>
-              <LandingAppPreviewBadge label="Grille des lots — vue dans l&apos;application">
-                <LandingProductPreview urlLabel="terraswiftflow.vercel.app/dashboard/plans">
-                  <LandingMasterplanPreview />
-                </LandingProductPreview>
-              </LandingAppPreviewBadge>
-            </div>
+        <LandingFeatureBlock
+          imageSrc={LANDING_IMAGES.masterplan}
+          imageAlt="Plan de masse aérien avec parcelles libres, réservées et vendues"
+          gradientClassName="from-slate-50/80 to-background"
+        >
+          <div>
+            <p className="text-sm font-medium text-primary">Fonction phare</p>
+            <h3 className="mt-2 text-2xl font-bold">Plan de masse interactif</h3>
+            <p className="mt-3 text-muted-foreground">
+              Uploadez votre plan, tracez chaque parcelle au crayon ou au rectangle. Les couleurs
+              vert / orange / rouge reflètent le statut réel de chaque lot.
+            </p>
+            <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
+              <li className="flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+                Dessin libre au crayon pour les parcelles irrégulières
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+                Zoom, survol et accès fiche lot ou vente
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+                Prix en FCFA, cash ou mensualités
+              </li>
+            </ul>
           </div>
-        </div>
+          <LandingAppPreviewBadge label="Grille des lots — vue dans l&apos;application">
+            <LandingProductPreview urlLabel="terraswiftflow.vercel.app/dashboard/plans">
+              <LandingMasterplanPreview />
+            </LandingProductPreview>
+          </LandingAppPreviewBadge>
+        </LandingFeatureBlock>
 
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {FEATURES.map(({ icon: Icon, title, description }) => (
