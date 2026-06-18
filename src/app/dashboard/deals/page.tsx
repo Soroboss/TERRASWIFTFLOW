@@ -5,11 +5,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { DealFilters } from "@/components/deals/deal-filters";
 import { DealStatusSummary } from "@/components/deals/deal-status-summary";
+import { DealPipelineBoard } from "@/components/deals/deal-pipeline-board";
+import { DealsViewToggle } from "@/components/deals/deals-view-toggle";
 import { KpiStatCard } from "@/components/dashboard/kpi-stat-card";
 import { PaymentScheduleList } from "@/components/dashboard/payment-schedule-list";
 import { getDashboardKPIs } from "@/lib/actions/dashboard";
 import {
   getDealsList,
+  getDealsPipeline,
   getDealStatusCounts,
   type DealListFilters,
 } from "@/lib/actions/deals";
@@ -26,14 +29,24 @@ const STATUS_LABELS = {
 } as const;
 
 interface PageProps {
-  searchParams: Promise<{ q?: string; status?: string; agent?: string }>;
+  searchParams: Promise<{ q?: string; status?: string; agent?: string; view?: string }>;
 }
 
 export default async function DealsPage({ searchParams }: PageProps) {
   const session = await requireSession();
   const params = await searchParams;
 
-  const filters: DealListFilters = {
+  const view = params.view === "pipeline" ? "pipeline" : "list";
+
+  const filterQuery = [
+    params.q ? `q=${encodeURIComponent(params.q)}` : "",
+    params.status ? `status=${params.status}` : "",
+    params.agent ? `agent=${params.agent}` : "",
+  ]
+    .filter(Boolean)
+    .join("&");
+
+  const listFilters: DealListFilters = {
     q: params.q,
     status: params.status as Deal["status"] | undefined,
     agent: params.agent,
@@ -43,8 +56,13 @@ export default async function DealsPage({ searchParams }: PageProps) {
   const showCompanyRevenue = canViewCompanyRevenue(session.profile.role);
   const agentId = isManager ? (params.agent ?? null) : session.userId;
 
-  const [deals, counts, kpis, agents] = await Promise.all([
-    getDealsList({ ...filters, agent: agentId ?? filters.agent }),
+  const [deals, pipelineDeals, counts, kpis, agents] = await Promise.all([
+    view === "list"
+      ? getDealsList({ ...listFilters, agent: agentId ?? listFilters.agent })
+      : Promise.resolve([]),
+    view === "pipeline"
+      ? getDealsPipeline({ ...listFilters, agent: agentId ?? listFilters.agent })
+      : Promise.resolve([]),
     getDealStatusCounts(agentId),
     getDashboardKPIs(agentId),
     isManager ? getOrganizationAgents() : Promise.resolve([]),
@@ -109,11 +127,15 @@ export default async function DealsPage({ searchParams }: PageProps) {
         agents={isManager ? agents : []}
       />
 
-      <p className="text-sm text-muted-foreground">
-        {deals.length} vente{deals.length !== 1 ? "s" : ""} affichée
-        {deals.length !== 1 ? "s" : ""}
-        {hasFilters ? " (filtres actifs)" : ` sur ${counts.total}`}
-      </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <DealsViewToggle currentView={view} baseQuery={filterQuery} />
+        <p className="text-sm text-muted-foreground">
+          {view === "pipeline"
+            ? `${pipelineDeals.length} vente${pipelineDeals.length !== 1 ? "s" : ""} dans le pipeline`
+            : `${deals.length} vente${deals.length !== 1 ? "s" : ""} affichée${deals.length !== 1 ? "s" : ""}`}
+          {hasFilters ? " (filtres actifs)" : view === "list" ? ` sur ${counts.total}` : ""}
+        </p>
+      </div>
 
       {kpis.overdue_count > 0 && (
         <Card className="border-red-200 bg-red-50/40">
@@ -131,7 +153,26 @@ export default async function DealsPage({ searchParams }: PageProps) {
         </Card>
       )}
 
-      {deals.length === 0 ? (
+      {view === "pipeline" ? (
+        pipelineDeals.length === 0 ? (
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+              <p className="text-muted-foreground">
+                {hasFilters
+                  ? "Aucune vente ne correspond à vos filtres."
+                  : "Aucune vente dans le pipeline."}
+              </p>
+              {!hasFilters && (
+                <Button asChild className="mt-4">
+                  <Link href="/dashboard/deals/nouveau">Créer votre première vente</Link>
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        ) : (
+          <DealPipelineBoard deals={pipelineDeals} showAgent={isManager} />
+        )
+      ) : deals.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12 text-center">
             <p className="text-muted-foreground">

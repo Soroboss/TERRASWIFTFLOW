@@ -18,7 +18,7 @@ import { computeBalanceFromLines } from "@/lib/sales-contract";
 import { createClient } from "@/lib/insforge/server";
 import { parseInput } from "@/lib/validations/parse";
 import { cancelDealSchema, createDealSchema } from "@/lib/validations/schemas";
-import type { Client, Deal, PaymentMode, PaymentMethod, Profile, Property } from "@/types/database";
+import type { Client, Deal, PaymentMode, PaymentMethod, Profile, Property, AcdStatus } from "@/types/database";
 import type {
   DealFinancials,
   DealRefund,
@@ -83,7 +83,9 @@ export async function getDealsList(filters?: DealListFilters): Promise<DealWithR
   const insforge = await createClient();
   let query = insforge.database
     .from("deals")
-    .select("*, property:properties(title, reference), client:clients(full_name, phone), agent:profiles(full_name)")
+    .select(
+      "*, property:properties(title, reference), client:clients(full_name, phone), agent:profiles!deals_agent_id_fkey(full_name)"
+    )
     .order("created_at", { ascending: false });
 
   if (filters?.status) {
@@ -140,7 +142,9 @@ export async function getDeal(id: string): Promise<DealWithRelations | null> {
   const insforge = await createClient();
   const { data, error } = await insforge.database
     .from("deals")
-    .select("*, property:properties(*), client:clients(*), agent:profiles(*)")
+    .select(
+      "*, property:properties(*), client:clients(*), agent:profiles!deals_agent_id_fkey(*)"
+    )
     .eq("id", id)
     .single();
 
@@ -169,7 +173,7 @@ export async function checkPropertyForDeal(
 
   const { data: activeDeal } = await insforge.database
     .from("deals")
-    .select("*, client:clients(full_name), agent:profiles(full_name)")
+    .select("*, client:clients(full_name), agent:profiles!deals_agent_id_fkey(full_name)")
     .eq("property_id", propertyId)
     .in("status", ["en_cours", "solde"])
     .maybeSingle();
@@ -587,6 +591,7 @@ export async function getActiveDealsByPropertyIds(
       status: string;
       agent_id?: string | null;
       client?: { full_name: string } | { full_name: string }[] | null;
+      agent?: { full_name: string } | { full_name: string }[] | null;
     }
   >
 > {
@@ -599,6 +604,7 @@ export async function getActiveDealsByPropertyIds(
       status: string;
       agent_id?: string | null;
       client?: { full_name: string } | { full_name: string }[] | null;
+      agent?: { full_name: string } | { full_name: string }[] | null;
     }
   >();
 
@@ -607,7 +613,9 @@ export async function getActiveDealsByPropertyIds(
   const insforge = await createClient();
   const { data, error } = await insforge.database
     .from("deals")
-    .select("id, property_id, status, agent_id, client:clients(full_name)")
+    .select(
+      "id, property_id, status, agent_id, client:clients(full_name), agent:profiles!deals_agent_id_fkey(full_name)"
+    )
     .in("property_id", uniqueIds)
     .in("status", ["en_cours", "solde"]);
 
@@ -620,9 +628,88 @@ export async function getActiveDealsByPropertyIds(
       status: string;
       agent_id?: string | null;
       client?: { full_name: string } | { full_name: string }[] | null;
+      agent?: { full_name: string } | { full_name: string }[] | null;
     };
     result.set(deal.property_id, deal);
   }
 
   return result;
+}
+
+export type DealPipelineStage = "reservation" | "paiements" | "solde" | "annule";
+
+export interface DealPipelineItem extends DealWithRelations {
+  total_paid: number;
+  payment_percent: number;
+  pipeline_stage: DealPipelineStage;
+}
+
+function resolvePipelineStage(
+  status: Deal["status"],
+  totalAmount: number,
+  totalPaid: number
+): DealPipelineStage {
+  if (status === "annule") return "annule";
+  if (status === "solde") return "solde";
+  if (totalPaid <= 0) return "reservation";
+  return "paiements";
+}
+
+export async function getDealsPipeline(filters?: DealListFilters): Promise<DealPipelineItem[]> {
+  const deals = await getDealsList(filters);
+  if (deals.length === 0) return [];
+
+  const dealIds = deals.map((d) => d.id);
+  const insforge = await createClient();
+  const { data: paymentRows, error } = await insforge.database
+    .from("payments")
+    .select("deal_id, amount")
+    .in("deal_id", dealIds);
+
+  if (error) throw new Error(error.message);
+
+  const paidByDeal = new Map<string, number>();
+  for (const row of paymentRows ?? []) {
+    const id = row.deal_id as string;
+    paidByDeal.set(id, (paidByDeal.get(id) ?? 0) + Number(row.amount));
+  }
+
+  return deals.map((deal) => {
+    const totalAmount = Number(deal.total_amount);
+    const total_paid = paidByDeal.get(deal.id) ?? 0;
+    const payment_percent =
+      totalAmount > 0 ? Math.min(100, Math.round((total_paid / totalAmount) * 100)) : 0;
+
+    return {
+      ...deal,
+      total_paid,
+      payment_percent,
+      pipeline_stage: resolvePipelineStage(deal.status, totalAmount, total_paid),
+    };
+  });
+}
+
+export async function updateAcdStatusAction(input: {
+  deal_id: string;
+  acd_status: AcdStatus;
+  acd_notes?: string | null;
+}) {
+  const session = await requireSession();
+  const access = await assertDealAccess(session, input.deal_id);
+  if (access.error) return { error: access.error };
+
+  const insforge = await createClient();
+  const { error } = await insforge.database
+    .from("deals")
+    .update({
+      acd_status: input.acd_status,
+      acd_notes: input.acd_notes?.trim() || null,
+      acd_updated_at: new Date().toISOString(),
+    })
+    .eq("id", input.deal_id);
+
+  if (error) return { error: error.message };
+
+  revalidatePath(`/dashboard/deals/${input.deal_id}`);
+  return { success: true };
 }

@@ -77,6 +77,37 @@ export async function updateOrganizationSettingsAction(input: {
   return { success: true };
 }
 
+export async function updatePublicSlugAction(slug: string) {
+  const session = await requireSession();
+  if (!canManageOrganizationSettings(session.profile.role)) {
+    return { error: "Droits insuffisants." };
+  }
+
+  const normalized = slug
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+
+  const insforge = await createClient();
+  const { error } = await insforge.database
+    .from("organizations")
+    .update({ public_slug: normalized || null })
+    .eq("id", session.profile.organization_id);
+
+  if (error) {
+    if (error.message.includes("idx_organizations_public_slug")) {
+      return { error: "Cet identifiant public est déjà utilisé." };
+    }
+    return { error: error.message };
+  }
+
+  revalidatePath("/dashboard/parametres");
+  return { success: true };
+}
+
 export async function uploadOrganizationLogoAction(formData: FormData) {
   const session = await requireSession();
   if (!canManageOrganizationSettings(session.profile.role)) {

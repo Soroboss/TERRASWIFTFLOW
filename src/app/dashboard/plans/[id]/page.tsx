@@ -45,16 +45,26 @@ export default async function PlanDetailPage({ params }: PageProps) {
   );
 
   const viewer = { role: session.profile.role, userId: session.userId };
-  const mapLots: MasterplanMapLot[] = lots.map((lot) => ({
-    id: lot.id,
-    status: lot.status,
-    lot_number: lot.lot_number,
-    reference: lot.reference,
-    title: lot.title,
-    price_total: lot.price_total,
-    map_zone: lot.map_zone ?? null,
-    href: resolveLotHref(lot.id, dealsByProperty.get(lot.id), viewer),
-  }));
+  const mapLots: MasterplanMapLot[] = lots.map((lot) => {
+    const deal = dealsByProperty.get(lot.id);
+    const clientName = deal ? dealClientName(deal.client) : null;
+    const agentRaw = deal?.agent;
+    const agentName = Array.isArray(agentRaw) ? agentRaw[0]?.full_name : agentRaw?.full_name;
+
+    return {
+      id: lot.id,
+      status: lot.status,
+      lot_number: lot.lot_number,
+      reference: lot.reference,
+      title: lot.title,
+      location_label: lot.location_label ?? null,
+      price_total: lot.price_total,
+      map_zone: lot.map_zone ?? null,
+      href: resolveLotHref(lot.id, deal, viewer),
+      client_name: clientName,
+      agent_name: agentName ?? null,
+    };
+  });
 
   const zonesCount = mapLots.filter((l) => l.map_zone).length;
 

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getSessionContext } from "@/lib/auth";
 import {
+  LandingCompetitive,
   LandingCTA,
   LandingFAQ,
   LandingFeatures,
@@ -29,6 +30,7 @@ export default async function HomePage() {
         <LandingHero />
         <LandingProblem />
         <LandingFeatures />
+        <LandingCompetitive />
         <LandingHowItWorks />
         <LandingUseCases />
         <LandingTestimonials />

@@ -23,6 +23,12 @@ export type ContractType = "acd" | "lettre_villageoise" | "approbation_travaux";
 export type ContractStage = "provisoire" | "definitif";
 export type ScheduleLineType = "acompte" | "mensualite" | "reliquat" | "cash";
 export type PaymentMethod = "wave" | "orange_money" | "mtn" | "especes" | "virement";
+export type AcdStatus =
+  | "non_demarre"
+  | "dossier_depose"
+  | "bornage"
+  | "en_administration"
+  | "delivre";
 
 export interface Organization {
   id: string;
@@ -36,6 +42,7 @@ export interface Organization {
   billing_email?: string | null;
   notes?: string | null;
   company_profile?: Record<string, unknown>;
+  public_slug?: string | null;
   created_at: string;
 }
 
@@ -112,6 +119,9 @@ export interface Deal {
   signed_at: string | null;
   cancelled_at: string | null;
   cancelled_by: string | null;
+  acd_status?: AcdStatus;
+  acd_notes?: string | null;
+  acd_updated_at?: string | null;
   created_at: string;
 }
 

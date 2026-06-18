@@ -32,6 +32,8 @@ export function PropertyForm({ property, masterplans }: PropertyFormProps) {
   const [surfaceM2, setSurfaceM2] = useState(String(property?.surface_m2 ?? ""));
   const [pricePerM2, setPricePerM2] = useState(String(property?.price_per_m2 ?? ""));
   const [locationLabel, setLocationLabel] = useState(property?.location_label ?? "");
+  const [lat, setLat] = useState(property?.lat != null ? String(property.lat) : "");
+  const [lng, setLng] = useState(property?.lng != null ? String(property.lng) : "");
   const [lotNumber, setLotNumber] = useState(property?.lot_number ?? "");
   const [masterplanId, setMasterplanId] = useState(property?.masterplan_id ?? "");
   const [rooms, setRooms] = useState(String(property?.rooms ?? ""));
@@ -52,6 +54,8 @@ export function PropertyForm({ property, masterplans }: PropertyFormProps) {
       surface_m2: surfaceM2 ? Number(surfaceM2) : null,
       price_per_m2: pricePerM2 ? Number(pricePerM2) : null,
       location_label: locationLabel || null,
+      lat: lat ? Number(lat) : null,
+      lng: lng ? Number(lng) : null,
       lot_number: type === "terrain" ? lotNumber || null : null,
       masterplan_id: type === "terrain" && masterplanId ? masterplanId : null,
       rooms: type === "maison" && rooms ? Number(rooms) : null,
@@ -170,6 +174,43 @@ export function PropertyForm({ property, masterplans }: PropertyFormProps) {
             placeholder="Ex. Bingerville, Abidjan"
           />
         </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="lat">Latitude GPS (optionnel)</Label>
+            <Input
+              id="lat"
+              type="number"
+              step="any"
+              value={lat}
+              onChange={(e) => setLat(e.target.value)}
+              placeholder="5.359951"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="lng">Longitude GPS (optionnel)</Label>
+            <Input
+              id="lng"
+              type="number"
+              step="any"
+              value={lng}
+              onChange={(e) => setLng(e.target.value)}
+              placeholder="-3.987654"
+            />
+          </div>
+        </div>
+        {(lat && lng) && (
+          <p className="text-xs text-muted-foreground">
+            <a
+              href={`https://www.google.com/maps?q=${lat},${lng}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-primary hover:underline"
+            >
+              Voir sur Google Maps →
+            </a>
+          </p>
+        )}
 
         {type === "terrain" && (
           <div className="grid gap-4 sm:grid-cols-2">

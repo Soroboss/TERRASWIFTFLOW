@@ -11,6 +11,9 @@ import {
   Smartphone,
   Users,
   Wallet,
+  LayoutGrid,
+  ShieldCheck,
+  FileCheck2,
   XCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -59,6 +62,24 @@ const FEATURES = [
     title: "Terrains & maisons VEFA",
     description:
       "Lotisseurs et promoteurs fonciers. Pas de locatif, pas de syndic — vente cash ou échelonnée.",
+  },
+  {
+    icon: ShieldCheck,
+    title: "Vérification publique parcelle",
+    description:
+      "Vos acquéreurs vérifient qu'un lot est libre avant d'acheter — confiance et anti-fraude, comme un registre cadastral simplifié.",
+  },
+  {
+    icon: LayoutGrid,
+    title: "Pipeline ventes Kanban",
+    description:
+      "Réservation → paiements → soldé. Vue visuelle de toutes vos ventes foncières, inspirée des meilleurs CRM immobiliers.",
+  },
+  {
+    icon: FileCheck2,
+    title: "Suivi ACD & titre foncier",
+    description:
+      "Dossier déposé, bornage, administration, délivrance — workflow ivoirien intégré à chaque vente terrain.",
   },
 ];
 
@@ -433,6 +454,100 @@ export function LandingFeatures() {
   );
 }
 
+export function LandingCompetitive() {
+  const rows = [
+    { feature: "Anti-double-vente automatique", tsf: true, immo: false, excel: false },
+    { feature: "Plan de masse interactif (zones crayon)", tsf: true, immo: false, excel: false },
+    { feature: "Vente terrain cash / échelonnée", tsf: true, immo: "partiel" as const, excel: false },
+    { feature: "Pipeline ventes visuel", tsf: true, immo: true, excel: false },
+    { feature: "Suivi ACD / titre foncier", tsf: true, immo: true, excel: false },
+    { feature: "Vérification publique parcelle", tsf: true, immo: "partiel" as const, excel: false },
+    { feature: "Reçus & contrats PDF (30 s)", tsf: true, immo: true, excel: false },
+    { feature: "Gestion locative & syndic", tsf: false, immo: true, excel: false },
+    { feature: "Cadastre GIS entreprise (ArcGIS)", tsf: false, immo: false, excel: false },
+    { feature: "Prix lotisseur CI (dès 25 000 F/mois)", tsf: true, immo: false, excel: true },
+  ];
+
+  function Cell({ value }: { value: boolean | "partiel" }) {
+    if (value === true) {
+      return <CheckCircle2 className="mx-auto h-5 w-5 text-emerald-600" aria-label="Oui" />;
+    }
+    if (value === "partiel") {
+      return <span className="text-xs font-medium text-amber-700">Partiel</span>;
+    }
+    return <XCircle className="mx-auto h-5 w-5 text-muted-foreground/40" aria-label="Non" />;
+  }
+
+  return (
+    <section id="comparatif" className="border-y bg-muted/20 px-4 py-20">
+      <div className="mx-auto max-w-5xl">
+        <div className="mb-10 text-center">
+          <h2 className="text-3xl font-bold sm:text-4xl">
+            Pourquoi TerraSwiftFlow plutôt qu&apos;ImmoSpaces ou Excel ?
+          </h2>
+          <p className="mx-auto mt-4 max-w-2xl text-muted-foreground">
+            <a
+              href="https://immospaces.com/"
+              className="underline-offset-2 hover:underline"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              ImmoSpaces
+            </a>{" "}
+            cible les agences locatives à Abidjan.{" "}
+            <a
+              href="https://www.spatialdimension.com/solutions/land-management"
+              className="underline-offset-2 hover:underline"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Landfolio
+            </a>{" "}
+            est un cadastre GIS pour gouvernements. TerraSwiftFlow est dédié aux{" "}
+            <strong className="font-medium text-foreground">lotisseurs et ventes foncières échelonnées</strong> en
+            Côte d&apos;Ivoire.
+          </p>
+        </div>
+
+        <div className="overflow-x-auto rounded-2xl border bg-card shadow-sm">
+          <table className="w-full min-w-[640px] text-sm">
+            <thead>
+              <tr className="border-b bg-muted/50">
+                <th className="px-4 py-3 text-left font-semibold">Fonctionnalité</th>
+                <th className="px-4 py-3 text-center font-semibold text-primary">TerraSwiftFlow</th>
+                <th className="px-4 py-3 text-center font-medium text-muted-foreground">ImmoSpaces</th>
+                <th className="px-4 py-3 text-center font-medium text-muted-foreground">Excel</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.feature} className="border-b last:border-0">
+                  <td className="px-4 py-3">{row.feature}</td>
+                  <td className="px-4 py-3 text-center">
+                    <Cell value={row.tsf} />
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <Cell value={row.immo} />
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <Cell value={row.excel} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <p className="mt-6 text-center text-sm text-muted-foreground">
+          <Link href="/verifier" className="font-medium text-primary hover:underline">
+            Essayer la vérification publique de parcelle →
+          </Link>
+        </p>
+      </div>
+    </section>
+  );
+}
+
 export function LandingHowItWorks() {
   return (
     <section id="comment" className="bg-muted/30 px-4 py-20">
@@ -670,6 +785,9 @@ export function LandingFooter() {
             </Link>
             <Link href="/register" className="hover:text-foreground">
               Inscription
+            </Link>
+            <Link href="/verifier" className="hover:text-foreground">
+              Vérifier un lot
             </Link>
           </div>
         </div>

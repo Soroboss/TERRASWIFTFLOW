@@ -5,9 +5,10 @@ import { DealScheduleTable } from "@/components/deals/deal-schedule-table";
 import { ScheduleGenerator } from "@/components/deals/schedule-generator";
 import { DealActions } from "@/components/deals/deal-actions";
 import { ContractDownloadButtons } from "@/components/deals/contract-download-buttons";
+import { AcdWorkflowTracker } from "@/components/deals/acd-workflow-tracker";
 import { getDeal, getDealFinancials, getDealRefund } from "@/lib/actions/deals";
 import { requireSession } from "@/lib/auth";
-import { canCancelDealsWithRefund } from "@/lib/auth/permissions";
+import { canCancelDealsWithRefund, canManageDeals } from "@/lib/auth/permissions";
 import {
   CONTRACT_STAGE_LABELS,
   CONTRACT_TYPE_LABELS,
@@ -24,6 +25,7 @@ export default async function DealDetailPage({ params }: PageProps) {
   const { id } = await params;
   const session = await requireSession();
   const canCancelDeal = canCancelDealsWithRefund(session.profile.role);
+  const canManageDeal = canManageDeals(session.profile.role);
   const [deal, financials, refund] = await Promise.all([
     getDeal(id),
     getDealFinancials(id),
@@ -67,6 +69,15 @@ export default async function DealDetailPage({ params }: PageProps) {
           )}
         </div>
       </div>
+
+      <AcdWorkflowTracker
+        dealId={deal.id}
+        contractType={contractType}
+        acdStatus={deal.acd_status ?? "non_demarre"}
+        acdNotes={deal.acd_notes ?? null}
+        acdUpdatedAt={deal.acd_updated_at ?? null}
+        canEdit={canManageDeal && deal.status === "en_cours"}
+      />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <Card>

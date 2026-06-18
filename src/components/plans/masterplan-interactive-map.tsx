@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Hand,
+  MapPin,
   Maximize2,
   Minus,
   Pencil,
@@ -11,6 +12,7 @@ import {
   Square,
   Trash2,
   Undo2,
+  User,
   ZoomIn,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -36,9 +38,12 @@ export interface MasterplanMapLot {
   lot_number: string | null;
   reference: string | null;
   title: string | null;
+  location_label: string | null;
   price_total: number;
   map_zone: MapZone | null;
   href: string;
+  client_name?: string | null;
+  agent_name?: string | null;
 }
 
 interface MasterplanInteractiveMapProps {
@@ -61,7 +66,7 @@ type DrawState = {
 type EditTool = "pencil" | "rectangle" | "pan";
 
 const MIN_SCALE = 1;
-const MAX_SCALE = 4;
+const MAX_SCALE = 5;
 
 export function MasterplanInteractiveMap({
   imageUrl,
@@ -74,6 +79,13 @@ export function MasterplanInteractiveMap({
 }: MasterplanInteractiveMapProps) {
   const router = useRouter();
   const canvasRef = useRef<HTMLDivElement>(null);
+  const imageLayerRef = useRef<HTMLDivElement>(null);
+  const scaleRef = useRef(1);
+  const panRef = useRef({ x: 0, y: 0 });
+  const wheelAccumRef = useRef(0);
+  const wheelRafRef = useRef<number | null>(null);
+  const lastWheelPointRef = useRef({ x: 0, y: 0 });
+
   const [scale, setScale] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [hoveredId, setHoveredId] = useState<string | null>(null);
@@ -84,6 +96,9 @@ export function MasterplanInteractiveMap({
   const [error, setError] = useState<string | null>(null);
   const [tool, setTool] = useState<EditTool>("pencil");
   const panStart = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null);
+
+  scaleRef.current = scale;
+  panRef.current = pan;
 
   const visibleLots = useMemo(
     () => lots.filter((lot) => showSoldLots || lot.status !== "vendu"),
@@ -106,44 +121,76 @@ export function MasterplanInteractiveMap({
     return rectFromDrag(draw.startX, draw.startY, draw.currentX, draw.currentY);
   }, [draw]);
 
-  const getNormalizedPoint = useCallback(
-    (clientX: number, clientY: number) => {
-      const rect = canvasRef.current?.getBoundingClientRect();
-      if (!rect) return { x: 0, y: 0 };
-      const imageX = (clientX - rect.left - pan.x) / scale;
-      const imageY = (clientY - rect.top - pan.y) / scale;
-      return {
-        x: Math.min(1, Math.max(0, imageX / rect.width)),
-        y: Math.min(1, Math.max(0, imageY / rect.height)),
-      };
-    },
-    [pan.x, pan.y, scale]
-  );
+  /** Coordonnées normalisées [0–1] par rapport au calque image (inclut pan/zoom via getBoundingClientRect). */
+  const getNormalizedPoint = useCallback((clientX: number, clientY: number) => {
+    const layer = imageLayerRef.current;
+    if (!layer) return { x: 0, y: 0 };
+    const rect = layer.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return { x: 0, y: 0 };
+    return {
+      x: Math.min(1, Math.max(0, (clientX - rect.left) / rect.width)),
+      y: Math.min(1, Math.max(0, (clientY - rect.top) / rect.height)),
+    };
+  }, []);
 
-  const clampPan = useCallback(
-    (nextPan: { x: number; y: number }, nextScale: number) => {
-      const el = canvasRef.current;
-      if (!el || nextScale <= 1) return { x: 0, y: 0 };
-      const maxX = el.clientWidth * (nextScale - 1);
-      const maxY = el.clientHeight * (nextScale - 1);
-      return {
-        x: Math.min(0, Math.max(-maxX, nextPan.x)),
-        y: Math.min(0, Math.max(-maxY, nextPan.y)),
-      };
+  const clampPan = useCallback((nextPan: { x: number; y: number }, nextScale: number) => {
+    const canvas = canvasRef.current;
+    const layer = imageLayerRef.current;
+    if (!canvas || !layer || nextScale <= 1) return { x: 0, y: 0 };
+
+    const canvasW = canvas.clientWidth;
+    const canvasH = canvas.clientHeight;
+    const contentW = layer.offsetWidth * nextScale;
+    const contentH = layer.offsetHeight * nextScale;
+    const maxX = Math.min(0, canvasW - contentW);
+    const maxY = Math.min(0, canvasH - contentH);
+
+    return {
+      x: Math.min(0, Math.max(maxX, nextPan.x)),
+      y: Math.min(0, Math.max(maxY, nextPan.y)),
+    };
+  }, []);
+
+  const zoomAtPoint = useCallback(
+    (clientX: number, clientY: number, factor: number) => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const mx = clientX - rect.left;
+      const my = clientY - rect.top;
+      const prevScale = scaleRef.current;
+      const nextScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, prevScale * factor));
+
+      if (nextScale <= 1) {
+        setScale(1);
+        setPan({ x: 0, y: 0 });
+        return;
+      }
+
+      const ratio = nextScale / prevScale;
+      const nextPan = clampPan(
+        {
+          x: mx - (mx - panRef.current.x) * ratio,
+          y: my - (my - panRef.current.y) * ratio,
+        },
+        nextScale
+      );
+
+      setScale(nextScale);
+      setPan(nextPan);
     },
-    []
+    [clampPan]
   );
 
   const zoomBy = useCallback(
     (delta: number) => {
-      setScale((prev) => {
-        const next = Math.min(MAX_SCALE, Math.max(MIN_SCALE, prev + delta));
-        if (next <= 1) setPan({ x: 0, y: 0 });
-        else setPan((p) => clampPan(p, next));
-        return next;
-      });
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const rect = canvas.getBoundingClientRect();
+      zoomAtPoint(rect.left + rect.width / 2, rect.top + rect.height / 2, 1 + delta);
     },
-    [clampPan]
+    [zoomAtPoint]
   );
 
   const resetView = useCallback(() => {
@@ -151,19 +198,38 @@ export function MasterplanInteractiveMap({
     setPan({ x: 0, y: 0 });
   }, []);
 
+  const flushWheelZoom = useCallback(() => {
+    wheelRafRef.current = null;
+    const delta = wheelAccumRef.current;
+    wheelAccumRef.current = 0;
+    if (Math.abs(delta) < 0.5) return;
+
+    const factor = Math.exp(-delta * 0.0018);
+    zoomAtPoint(lastWheelPointRef.current.x, lastWheelPointRef.current.y, factor);
+  }, [zoomAtPoint]);
+
   useEffect(() => {
     const el = canvasRef.current;
     if (!el) return;
 
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
-      const delta = e.deltaY > 0 ? -0.15 : 0.15;
-      zoomBy(delta);
+      e.stopPropagation();
+      lastWheelPointRef.current = { x: e.clientX, y: e.clientY };
+      wheelAccumRef.current += e.deltaY;
+      if (wheelRafRef.current === null) {
+        wheelRafRef.current = requestAnimationFrame(flushWheelZoom);
+      }
     };
 
     el.addEventListener("wheel", onWheel, { passive: false });
-    return () => el.removeEventListener("wheel", onWheel);
-  }, [zoomBy]);
+    return () => {
+      el.removeEventListener("wheel", onWheel);
+      if (wheelRafRef.current !== null) {
+        cancelAnimationFrame(wheelRafRef.current);
+      }
+    };
+  }, [flushWheelZoom]);
 
   const clearPencilStroke = useCallback(() => {
     setPencilStroke([]);
@@ -223,7 +289,7 @@ export function MasterplanInteractiveMap({
     const target = e.target as Element;
     const onZone =
       target.tagName.toLowerCase() === "polygon" ||
-      Boolean(target.closest("a[href^='/dashboard']"));
+      Boolean(target.closest("[data-map-zone]"));
 
     if (mode === "edit" && tool === "pencil" && selectedLotId && !onZone) {
       const pt = getNormalizedPoint(e.clientX, e.clientY);
@@ -293,6 +359,12 @@ export function MasterplanInteractiveMap({
     }
   };
 
+  const handleZoneNavigate = (lot: MasterplanMapLot, e: React.MouseEvent) => {
+    if (mode !== "view") return;
+    e.preventDefault();
+    router.push(lot.href);
+  };
+
   const handleDeleteZone = async () => {
     if (!selectedLotId) return;
     await saveZone(selectedLotId, null);
@@ -303,10 +375,10 @@ export function MasterplanInteractiveMap({
     <div className={cn("space-y-3", className)}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap gap-1.5">
-          <Button type="button" size="sm" variant="outline" onClick={() => zoomBy(0.25)} aria-label="Zoom avant">
+          <Button type="button" size="sm" variant="outline" onClick={() => zoomBy(0.2)} aria-label="Zoom avant">
             <Plus className="h-4 w-4" />
           </Button>
-          <Button type="button" size="sm" variant="outline" onClick={() => zoomBy(-0.25)} aria-label="Zoom arrière">
+          <Button type="button" size="sm" variant="outline" onClick={() => zoomBy(-0.2)} aria-label="Zoom arrière">
             <Minus className="h-4 w-4" />
           </Button>
           <Button type="button" size="sm" variant="outline" onClick={resetView} aria-label="Réinitialiser la vue">
@@ -376,7 +448,7 @@ export function MasterplanInteractiveMap({
           {mappedLots.length}/{visibleLots.length} lot{visibleLots.length !== 1 ? "s" : ""} sur le plan
           {mode === "edit" && tool === "pencil" && " · crayon : dessinez le contour du lot"}
           {mode === "edit" && tool === "rectangle" && " · tracez un rectangle"}
-          {mode === "view" && " · molette pour zoomer · glisser pour naviguer"}
+          {mode === "view" && " · molette fluide · glisser pour naviguer"}
         </p>
       </div>
 
@@ -405,117 +477,116 @@ export function MasterplanInteractiveMap({
       >
         <div
           className={cn(
-            "absolute inset-0",
+            "h-full min-h-[inherit] w-full select-none",
             mode === "edit" && (tool === "pencil" || tool === "rectangle") && selectedLotId
               ? "cursor-crosshair"
               : "cursor-grab active:cursor-grabbing"
           )}
-          style={{
-            transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})`,
-            transformOrigin: "top left",
-            width: "100%",
-          }}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerLeave={handlePointerUp}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={imageUrl}
-            alt="Plan de masse interactif"
-            className="block w-full select-none"
-            draggable={false}
-          />
-
-          <svg
-            className="pointer-events-none absolute inset-0 h-full w-full"
-            viewBox="0 0 100 100"
-            preserveAspectRatio="none"
-            aria-hidden
+          <div
+            style={{
+              transform: `translate3d(${pan.x}px, ${pan.y}px, 0) scale(${scale})`,
+              transformOrigin: "top left",
+              willChange: "transform",
+            }}
+            className="w-full"
           >
-            {mappedLots.map((lot) => {
-              if (!lot.map_zone) return null;
-              const colors = MAP_ZONE_STATUS_COLORS[lot.status];
-              const isHovered = hoveredId === lot.id;
-              const isSelected = selectedLotId === lot.id;
-              const points = zoneToPercentPoints(lot.map_zone);
+            <div ref={imageLayerRef} className="relative w-full">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={imageUrl}
+                alt="Plan de masse interactif"
+                className="block w-full select-none"
+                draggable={false}
+              />
 
-              return (
-                <g key={lot.id}>
-                  {mode === "view" ? (
-                    <a href={lot.href} onClick={(e) => handleZoneClick(lot, e)}>
-                      <polygon
-                        points={points}
-                        fill={isHovered || isSelected ? colors.hover : colors.fill}
-                        stroke={colors.stroke}
-                        strokeWidth={isSelected ? 0.6 : 0.35}
-                        vectorEffect="non-scaling-stroke"
-                        className={cn(
-                          "cursor-pointer transition-[fill,stroke-width] duration-200",
-                          lot.status === "libre" && "animate-pulse [animation-duration:3s]"
-                        )}
-                        onMouseEnter={() => setHoveredId(lot.id)}
-                        onMouseLeave={() => setHoveredId(null)}
-                      />
-                    </a>
-                  ) : (
+              <svg
+                className="absolute inset-0 h-full w-full"
+                viewBox="0 0 100 100"
+                preserveAspectRatio="none"
+                aria-hidden
+              >
+                {mappedLots.map((lot) => {
+                  if (!lot.map_zone) return null;
+                  const colors = MAP_ZONE_STATUS_COLORS[lot.status];
+                  const isHovered = hoveredId === lot.id;
+                  const isSelected = selectedLotId === lot.id;
+                  const points = zoneToPercentPoints(lot.map_zone);
+
+                  const polygonEl = (
                     <polygon
                       points={points}
                       fill={isHovered || isSelected ? colors.hover : colors.fill}
                       stroke={colors.stroke}
-                      strokeWidth={isSelected ? 0.6 : 0.35}
+                      strokeWidth={isSelected ? 0.55 : isHovered ? 0.45 : 0.32}
                       vectorEffect="non-scaling-stroke"
-                      className="pointer-events-auto cursor-pointer transition-[fill,stroke-width] duration-200"
+                      className={cn(
+                        "cursor-pointer transition-[fill,stroke-width,opacity] duration-150 ease-out",
+                        isHovered && "opacity-100",
+                        !isHovered && lot.status === "libre" && "opacity-90"
+                      )}
                       onMouseEnter={() => setHoveredId(lot.id)}
                       onMouseLeave={() => setHoveredId(null)}
-                      onClick={(e) => handleZoneClick(lot, e)}
+                      onClick={(e) => {
+                        if (mode === "view") handleZoneNavigate(lot, e);
+                        else handleZoneClick(lot, e);
+                      }}
                     />
-                  )}
-                  {mode === "edit" && lot.map_zone && (
-                    <LotZoneLabel lot={lot} zone={lot.map_zone} isSelected={isSelected} />
-                  )}
-                </g>
-              );
-            })}
+                  );
 
-            {pencilStroke.length >= 2 && (
-              <>
-                <polyline
-                  points={strokeToPercentPolyline(pencilStroke)}
-                  fill="none"
-                  stroke="#6366f1"
-                  strokeWidth={0.55}
-                  vectorEffect="non-scaling-stroke"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                {pencilStroke.length >= 3 && (
+                  return (
+                    <g key={lot.id} data-map-zone>
+                      {polygonEl}
+                      {(mode === "edit" || isHovered) && (
+                        <LotZoneLabel lot={lot} zone={lot.map_zone} isSelected={isSelected || isHovered} />
+                      )}
+                    </g>
+                  );
+                })}
+
+                {pencilStroke.length >= 2 && (
+                  <>
+                    <polyline
+                      points={strokeToPercentPolyline(pencilStroke)}
+                      fill="none"
+                      stroke="#6366f1"
+                      strokeWidth={0.55}
+                      vectorEffect="non-scaling-stroke"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    {pencilStroke.length >= 3 && (
+                      <polygon
+                        points={strokeToPercentPolyline(pencilStroke)}
+                        fill="rgba(99, 102, 241, 0.25)"
+                        stroke="#6366f1"
+                        strokeWidth={0.4}
+                        strokeDasharray="1 0.5"
+                      />
+                    )}
+                  </>
+                )}
+
+                {previewRect && (
                   <polygon
-                    points={strokeToPercentPolyline(pencilStroke)}
-                    fill="rgba(99, 102, 241, 0.25)"
+                    points={zoneToPercentPoints(previewRect)}
+                    fill="rgba(99, 102, 241, 0.35)"
                     stroke="#6366f1"
-                    strokeWidth={0.4}
-                    strokeDasharray="1 0.5"
+                    strokeWidth={0.5}
+                    strokeDasharray="1 0.6"
                   />
                 )}
-              </>
-            )}
+              </svg>
 
-            {previewRect && (
-              <polygon
-                points={zoneToPercentPoints(previewRect)}
-                fill="rgba(99, 102, 241, 0.35)"
-                stroke="#6366f1"
-                strokeWidth={0.5}
-                strokeDasharray="1 0.6"
-              />
-            )}
-          </svg>
-
-          {hoveredLot?.map_zone && mode === "view" && (
-            <LotTooltip lot={hoveredLot} zone={hoveredLot.map_zone} />
-          )}
+              {hoveredLot?.map_zone && (
+                <LotTooltip lot={hoveredLot} zone={hoveredLot.map_zone} mode={mode} />
+              )}
+            </div>
+          </div>
         </div>
 
         {scale === 1 && mappedLots.length === 0 && mode === "view" && (
@@ -570,41 +641,92 @@ function LotZoneLabel({
       y={cy * 100}
       textAnchor="middle"
       dominantBaseline="middle"
-      fontSize={isSelected ? 3.2 : 2.6}
+      fontSize={isSelected ? 3 : 2.4}
       fontWeight={700}
       fill={isSelected ? "#1e3a8a" : "#ffffff"}
       stroke={isSelected ? "#ffffff" : "#0f172a"}
-      strokeWidth={0.15}
+      strokeWidth={0.12}
       paintOrder="stroke"
       className="pointer-events-none select-none"
     >
-      {reference ? `${label}` : label}
+      {reference ? label : label}
     </text>
   );
 }
 
-function LotTooltip({ lot, zone }: { lot: MasterplanMapLot; zone: MapZone }) {
+function LotTooltip({
+  lot,
+  zone,
+  mode,
+}: {
+  lot: MasterplanMapLot;
+  zone: MapZone;
+  mode: "view" | "edit";
+}) {
   const [cx, cy] = zoneCenter(zone);
   const { number, reference } = formatLotNumberReference(lot);
+  const displayName = number ?? lot.title ?? "Lot";
+  const hasOccupant = lot.status !== "libre" && Boolean(lot.client_name);
 
   return (
     <div
-      className="pointer-events-none absolute z-30 min-w-[160px] max-w-[220px] -translate-x-1/2 -translate-y-full rounded-xl border border-white/20 bg-white/95 p-3 text-left shadow-xl backdrop-blur-md"
+      className="pointer-events-none absolute z-30 min-w-[180px] max-w-[260px] -translate-x-1/2 -translate-y-full animate-in fade-in-0 zoom-in-95 duration-150"
       style={{
         left: `${cx * 100}%`,
         top: `${cy * 100}%`,
-        marginTop: "-8px",
+        marginTop: "-10px",
       }}
     >
-      <p className="text-sm font-semibold text-slate-900">
-        {number ?? lot.title}
-        {reference && <span className="ml-1 font-normal text-slate-500">({reference})</span>}
-      </p>
-      <p className="mt-0.5 text-xs font-medium text-primary">{formatFCFA(lot.price_total)}</p>
-      <p className="mt-1 text-xs text-slate-600">{PROPERTY_STATUS_LABELS[lot.status]}</p>
-      <p className="mt-2 text-[10px] font-medium uppercase tracking-wide text-slate-400">
-        Cliquer pour ouvrir →
-      </p>
+      <div className="rounded-xl border border-white/25 bg-white/95 p-3 text-left shadow-2xl shadow-black/20 backdrop-blur-md">
+        <p className="text-sm font-semibold leading-tight text-slate-900">
+          {displayName}
+          {reference && (
+            <span className="ml-1 font-normal text-slate-500">· {reference}</span>
+          )}
+        </p>
+
+        {lot.location_label && (
+          <p className="mt-1.5 flex items-start gap-1.5 text-xs text-slate-600">
+            <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
+            <span>{lot.location_label}</span>
+          </p>
+        )}
+
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          <span
+            className={cn(
+              "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+              lot.status === "libre" && "bg-emerald-100 text-emerald-800",
+              lot.status === "reserve" && "bg-amber-100 text-amber-900",
+              lot.status === "vendu" && "bg-red-100 text-red-800"
+            )}
+          >
+            {PROPERTY_STATUS_LABELS[lot.status]}
+          </span>
+          <span className="text-xs font-medium text-primary">{formatFCFA(lot.price_total)}</span>
+        </div>
+
+        {hasOccupant && (
+          <p className="mt-2 flex items-center gap-1.5 border-t border-slate-100 pt-2 text-xs text-slate-700">
+            <User className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+            <span>
+              {lot.status === "vendu" ? "Acheté par" : "Réservé pour"}{" "}
+              <strong>{lot.client_name}</strong>
+              {lot.agent_name && (
+                <span className="text-slate-500"> · agent {lot.agent_name}</span>
+              )}
+            </span>
+          </p>
+        )}
+
+        {lot.status === "libre" && (
+          <p className="mt-2 text-[10px] text-slate-500">Parcelle disponible à la vente</p>
+        )}
+
+        <p className="mt-2 text-[10px] font-medium uppercase tracking-wide text-slate-400">
+          {mode === "view" ? "Cliquer pour ouvrir →" : "Sélectionné au survol"}
+        </p>
+      </div>
     </div>
   );
 }
@@ -640,7 +762,12 @@ export function MasterplanMapLotList({
             <span className="truncate font-medium">
               {number ?? lot.title}
               {reference && (
-                <span className={cn("ml-1 text-xs", selectedLotId === lot.id ? "opacity-80" : "text-muted-foreground")}>
+                <span
+                  className={cn(
+                    "ml-1 text-xs",
+                    selectedLotId === lot.id ? "opacity-80" : "text-muted-foreground"
+                  )}
+                >
                   {reference}
                 </span>
               )}
@@ -648,9 +775,7 @@ export function MasterplanMapLotList({
             <span
               className={cn(
                 "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium",
-                hasZone
-                  ? "bg-emerald-100 text-emerald-800"
-                  : "bg-amber-100 text-amber-800"
+                hasZone ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"
               )}
             >
               {hasZone ? "Sur plan" : "À placer"}

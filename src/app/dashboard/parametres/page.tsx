@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Settings } from "lucide-react";
 import { OrganizationSettingsForm } from "@/components/settings/organization-settings-form";
+import { PublicVerificationSettings } from "@/components/settings/public-verification-settings";
 import { KpiStatCard } from "@/components/dashboard/kpi-stat-card";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -69,6 +70,21 @@ export default async function ParametresPage() {
             organizationName={organization.name}
             billingEmail={organization.billing_email}
             profile={profile}
+          />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Confiance acquéreurs</CardTitle>
+          <CardDescription>
+            Portail de vérification anti-double-vente — visible publiquement sans connexion.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <PublicVerificationSettings
+            organizationName={organization.name}
+            publicSlug={organization.public_slug ?? null}
           />
         </CardContent>
       </Card>

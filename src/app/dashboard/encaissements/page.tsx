@@ -4,6 +4,7 @@ import { KpiStatCard } from "@/components/dashboard/kpi-stat-card";
 import { PaymentScheduleList } from "@/components/dashboard/payment-schedule-list";
 import { PaymentMethodBreakdownBar } from "@/components/encaissements/payment-method-breakdown";
 import { RecentPaymentsList } from "@/components/encaissements/recent-payments-list";
+import { EncaissementsExportButton } from "@/components/encaissements/export-button";
 import { getDashboardKPIs } from "@/lib/actions/dashboard";
 import { getMonthlyPaymentBreakdown, getRecentPayments } from "@/lib/actions/payments";
 import { getOrganizationAgents } from "@/lib/actions/clients";
@@ -40,13 +41,16 @@ export default async function EncaissementsPage({ searchParams }: PageProps) {
               : "Vos encaissements et échéances clients"}
           </p>
         </div>
-        {canViewAllData(session.profile.role) && (
-          <AgentFilter
-            agents={agents}
-            currentAgentId={agentId ?? undefined}
-            basePath="/dashboard/encaissements"
-          />
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {canViewAllData(session.profile.role) && (
+            <AgentFilter
+              agents={agents}
+              currentAgentId={agentId ?? undefined}
+              basePath="/dashboard/encaissements"
+            />
+          )}
+          <EncaissementsExportButton />
+        </div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
