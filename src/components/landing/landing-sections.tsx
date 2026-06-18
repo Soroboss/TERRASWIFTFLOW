@@ -456,16 +456,16 @@ export function LandingFeatures() {
 
 export function LandingCompetitive() {
   const rows = [
-    { feature: "Anti-double-vente automatique", tsf: true, immo: false, excel: false },
-    { feature: "Plan de masse interactif (zones crayon)", tsf: true, immo: false, excel: false },
-    { feature: "Vente terrain cash / échelonnée", tsf: true, immo: "partiel" as const, excel: false },
-    { feature: "Pipeline ventes visuel", tsf: true, immo: true, excel: false },
-    { feature: "Suivi ACD / titre foncier", tsf: true, immo: true, excel: false },
-    { feature: "Vérification publique parcelle", tsf: true, immo: "partiel" as const, excel: false },
-    { feature: "Reçus & contrats PDF (30 s)", tsf: true, immo: true, excel: false },
-    { feature: "Gestion locative & syndic", tsf: false, immo: true, excel: false },
-    { feature: "Cadastre GIS entreprise (ArcGIS)", tsf: false, immo: false, excel: false },
-    { feature: "Prix lotisseur CI (dès 25 000 F/mois)", tsf: true, immo: false, excel: true },
+    { feature: "Anti-double-vente automatique", tsf: true, other: false, manual: false },
+    { feature: "Plan de masse interactif (zones crayon)", tsf: true, other: false, manual: false },
+    { feature: "Vente terrain cash / échelonnée", tsf: true, other: "partiel" as const, manual: false },
+    { feature: "Pipeline ventes visuel", tsf: true, other: true, manual: false },
+    { feature: "Suivi ACD / titre foncier", tsf: true, other: true, manual: false },
+    { feature: "Vérification publique parcelle", tsf: true, other: "partiel" as const, manual: false },
+    { feature: "Reçus & contrats PDF (30 s)", tsf: true, other: true, manual: false },
+    { feature: "Gestion locative & syndic", tsf: false, other: true, manual: false },
+    { feature: "Cadastre GIS entreprise", tsf: false, other: false, manual: false },
+    { feature: "Prix lotisseur CI (dès 25 000 F/mois)", tsf: true, other: false, manual: true },
   ];
 
   function Cell({ value }: { value: boolean | "partiel" }) {
@@ -483,27 +483,12 @@ export function LandingCompetitive() {
       <div className="mx-auto max-w-5xl">
         <div className="mb-10 text-center">
           <h2 className="text-3xl font-bold sm:text-4xl">
-            Pourquoi TerraSwiftFlow plutôt qu&apos;ImmoSpaces ou Excel ?
+            Pourquoi TerraSwiftFlow pour vendre des parcelles ?
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-muted-foreground">
-            <a
-              href="https://immospaces.com/"
-              className="underline-offset-2 hover:underline"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              ImmoSpaces
-            </a>{" "}
-            cible les agences locatives à Abidjan.{" "}
-            <a
-              href="https://www.spatialdimension.com/solutions/land-management"
-              className="underline-offset-2 hover:underline"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Landfolio
-            </a>{" "}
-            est un cadastre GIS pour gouvernements. TerraSwiftFlow est dédié aux{" "}
+            Les logiciels d&apos;agence immobilière couvrent surtout le locatif et les mandats. Les
+            tableurs et le papier laissent place aux doubles ventes. TerraSwiftFlow est pensé
+            uniquement pour les{" "}
             <strong className="font-medium text-foreground">lotisseurs et ventes foncières échelonnées</strong> en
             Côte d&apos;Ivoire.
           </p>
@@ -515,8 +500,12 @@ export function LandingCompetitive() {
               <tr className="border-b bg-muted/50">
                 <th className="px-4 py-3 text-left font-semibold">Fonctionnalité</th>
                 <th className="px-4 py-3 text-center font-semibold text-primary">TerraSwiftFlow</th>
-                <th className="px-4 py-3 text-center font-medium text-muted-foreground">ImmoSpaces</th>
-                <th className="px-4 py-3 text-center font-medium text-muted-foreground">Excel</th>
+                <th className="px-4 py-3 text-center font-medium text-muted-foreground">
+                  Outils généralistes
+                </th>
+                <th className="px-4 py-3 text-center font-medium text-muted-foreground">
+                  Excel / manuel
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -527,10 +516,10 @@ export function LandingCompetitive() {
                     <Cell value={row.tsf} />
                   </td>
                   <td className="px-4 py-3 text-center">
-                    <Cell value={row.immo} />
+                    <Cell value={row.other} />
                   </td>
                   <td className="px-4 py-3 text-center">
-                    <Cell value={row.excel} />
+                    <Cell value={row.manual} />
                   </td>
                 </tr>
               ))}

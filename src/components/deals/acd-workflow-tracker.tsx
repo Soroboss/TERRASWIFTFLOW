@@ -70,8 +70,7 @@ export function AcdWorkflowTracker({
           Suivi ACD / titre foncier
         </CardTitle>
         <p className="text-sm text-muted-foreground">
-          Workflow administratif ivoirien — dossier, bornage, délivrance (comme ImmoSpaces, intégré à
-          la vente).
+          Workflow administratif ivoirien — dossier, bornage, délivrance, intégré à chaque vente.
         </p>
       </CardHeader>
       <CardContent className="space-y-4">

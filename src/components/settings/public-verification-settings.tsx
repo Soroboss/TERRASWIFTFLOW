@@ -51,7 +51,7 @@ export function PublicVerificationSettings({
             <Link href="/verifier" className="text-primary hover:underline">
               /verifier
             </Link>
-            . Différenciateur vs agences généralistes.
+            . Renforce la confiance de vos acquéreurs.
           </p>
         </div>
       </div>
