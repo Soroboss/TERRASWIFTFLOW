@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import {
   ArrowRight,
   Building2,
@@ -15,7 +16,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { PRICING_PLANS, TRIAL_DAYS } from "@/lib/pricing";
 import { PricingCard } from "@/components/landing/pricing-card";
+import { LandingAppPreviewBadge } from "@/components/landing/landing-app-preview-badge";
 import { LandingDashboardMockup } from "@/components/landing/landing-dashboard-mockup";
+import { LandingImage, LANDING_IMAGES } from "@/components/landing/landing-image";
 import { LandingMasterplanPreview } from "@/components/landing/landing-masterplan-preview";
 import { LandingProductPreview } from "@/components/landing/landing-product-preview";
 
@@ -91,21 +94,24 @@ const USE_CASES = [
     title: "Lotisseur à Abidjan",
     description:
       "Gérez 200 parcelles sur un seul plan de masse. Vos agents voient en temps réel ce qui est libre ou vendu.",
-    accent: "from-emerald-500/15 to-emerald-600/5",
+    image: LANDING_IMAGES.masterplan,
+    imageAlt: "Vue aérienne d'un lotissement avec parcelles colorées",
   },
   {
     icon: Building2,
     title: "Promoteur VEFA",
     description:
       "Maisons en construction, paiements cash ou échelonnés sur 24 mois. Suivez chaque encaissement lot par lot.",
-    accent: "from-amber-500/15 to-amber-600/5",
+    image: LANDING_IMAGES.mobileAgent,
+    imageAlt: "Agent sur le terrain encaissant un paiement mobile money",
   },
   {
     icon: Users,
     title: "Agence avec plusieurs agents",
     description:
       "Chaque commercial saisit ses ventes depuis le terrain. Le gérant a une vue consolidée sans appeler tout le monde.",
-    accent: "from-primary/15 to-primary/5",
+    image: LANDING_IMAGES.hero,
+    imageAlt: "Promoteur et équipe avec plan de masse et tableau de bord",
   },
 ];
 
@@ -247,9 +253,20 @@ export function LandingHero() {
           </p>
         </div>
 
-        <LandingProductPreview className="max-w-xl lg:max-w-none">
-          <LandingDashboardMockup />
-        </LandingProductPreview>
+        <div className="mx-auto w-full max-w-xl space-y-5 lg:max-w-none">
+          <LandingImage
+            src={LANDING_IMAGES.hero}
+            alt="Promoteur ivoirien sur le terrain avec plan de masse et suivi des ventes"
+            className="aspect-[4/3] sm:aspect-[16/10]"
+            priority
+            sizes="(max-width: 1024px) 100vw, 50vw"
+          />
+          <LandingAppPreviewBadge label="Et dans l'application — votre tableau de bord réel">
+            <LandingProductPreview>
+              <LandingDashboardMockup />
+            </LandingProductPreview>
+          </LandingAppPreviewBadge>
+        </div>
       </div>
 
       <div className="mx-auto mt-16 grid max-w-4xl gap-4 sm:grid-cols-3">
@@ -284,6 +301,14 @@ export function LandingProblem() {
             coûte cher — en argent, en réputation et en contentieux.
           </p>
         </div>
+
+        <LandingImage
+          src={LANDING_IMAGES.beforeAfter}
+          alt="Avant : stress et Excel — Après : promoteur serein avec TerraSwiftFlow"
+          className="mx-auto mb-12 aspect-[16/9] max-w-4xl"
+          objectFit="contain"
+          sizes="(max-width: 1024px) 100vw, 896px"
+        />
 
         <div className="grid gap-8 lg:grid-cols-2">
           <div className="rounded-2xl border border-red-200/60 bg-red-50/50 p-8">
@@ -334,45 +359,69 @@ export function LandingFeatures() {
           </p>
         </div>
 
-        <div className="mb-12 grid items-center gap-8 lg:grid-cols-2 lg:gap-12">
-          <div>
-            <p className="text-sm font-medium text-primary">Aperçu réel du tableau de bord</p>
-            <h3 className="mt-2 text-2xl font-bold">Ce que vous voyez ici, c&apos;est l&apos;application</h3>
-            <p className="mt-3 text-muted-foreground">
-              Pas une illustration générique : le même composant que votre espace connecté — compteurs
-              libres / réservés / vendus, grille colorée et encaissements du mois.
-            </p>
+        <div className="mb-12 overflow-hidden rounded-2xl border bg-gradient-to-br from-emerald-50/60 to-background p-6 lg:p-10">
+          <div className="grid items-center gap-8 lg:grid-cols-2 lg:gap-10">
+            <LandingImage
+              src={LANDING_IMAGES.mobileAgent}
+              alt="Agent commercial sur le terrain avec tablette"
+              className="aspect-[4/3]"
+              sizes="(max-width: 1024px) 100vw, 50vw"
+            />
+            <div className="space-y-5">
+              <div>
+                <p className="text-sm font-medium text-primary">Sur le terrain et au bureau</p>
+                <h3 className="mt-2 text-2xl font-bold">Vos équipes, vos clients, vos encaissements</h3>
+                <p className="mt-3 text-muted-foreground">
+                  L&apos;illustration montre le quotidien de vos agents ; ci-dessous, le même écran que
+                  vous aurez une fois connecté — lots colorés, stats et encaissements du mois.
+                </p>
+              </div>
+              <LandingAppPreviewBadge label="Tableau de bord — composant identique à l&apos;app">
+                <LandingProductPreview>
+                  <LandingDashboardMockup />
+                </LandingProductPreview>
+              </LandingAppPreviewBadge>
+            </div>
           </div>
-          <LandingProductPreview>
-            <LandingDashboardMockup />
-          </LandingProductPreview>
         </div>
 
-        <div className="mb-12 grid items-center gap-8 lg:grid-cols-2 lg:gap-12">
-          <LandingProductPreview urlLabel="terraswiftflow.vercel.app/dashboard/plans">
-            <LandingMasterplanPreview />
-          </LandingProductPreview>
-          <div>
-            <p className="text-sm font-medium text-primary">Fonction phare</p>
-            <h3 className="mt-2 text-2xl font-bold">Plan de masse interactif</h3>
-            <p className="mt-3 text-muted-foreground">
-              Uploadez votre plan, délimitez chaque parcelle et naviguez en un clic vers la fiche lot
-              ou la vente en cours — avec zoom et codes couleur en temps réel.
-            </p>
-            <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
-              <li className="flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
-                Lots libres, réservés, vendus en un coup d&apos;œil
-              </li>
-              <li className="flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
-                Zones cliquables sur votre image de plan
-              </li>
-              <li className="flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
-                Prix en FCFA, cash ou mensualités
-              </li>
-            </ul>
+        <div className="mb-12 overflow-hidden rounded-2xl border bg-gradient-to-br from-slate-50/80 to-background p-6 lg:p-10">
+          <div className="grid items-center gap-8 lg:grid-cols-2 lg:gap-10">
+            <LandingImage
+              src={LANDING_IMAGES.masterplan}
+              alt="Plan de masse aérien avec parcelles libres, réservées et vendues"
+              className="aspect-[16/10]"
+              sizes="(max-width: 1024px) 100vw, 50vw"
+            />
+            <div className="space-y-5">
+              <div>
+                <p className="text-sm font-medium text-primary">Fonction phare</p>
+                <h3 className="mt-2 text-2xl font-bold">Plan de masse interactif</h3>
+                <p className="mt-3 text-muted-foreground">
+                  Uploadez votre plan, tracez chaque parcelle et naviguez en un clic. Les couleurs
+                  vert / orange / rouge reflètent le statut réel de chaque lot dans votre programme.
+                </p>
+                <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+                    Zones cliquables sur votre image uploadée
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+                    Zoom, survol et accès fiche lot ou vente
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+                    Prix en FCFA, cash ou mensualités
+                  </li>
+                </ul>
+              </div>
+              <LandingAppPreviewBadge label="Grille des lots — vue dans l&apos;application">
+                <LandingProductPreview urlLabel="terraswiftflow.vercel.app/dashboard/plans">
+                  <LandingMasterplanPreview />
+                </LandingProductPreview>
+              </LandingAppPreviewBadge>
+            </div>
           </div>
         </div>
 
@@ -399,12 +448,20 @@ export function LandingHowItWorks() {
   return (
     <section id="comment" className="bg-muted/30 px-4 py-20">
       <div className="mx-auto max-w-6xl">
-        <div className="mb-12 max-w-2xl">
-          <h2 className="text-3xl font-bold sm:text-4xl">Comment ça marche</h2>
-          <p className="mt-4 text-muted-foreground">
-            Opérationnel en une journée — pas besoin de consultant ni de formation longue.
-            Vos agents encaissent sur le terrain, le gérant suit tout depuis le bureau.
-          </p>
+        <div className="mb-12 grid items-center gap-10 lg:grid-cols-2">
+          <div>
+            <h2 className="text-3xl font-bold sm:text-4xl">Comment ça marche</h2>
+            <p className="mt-4 text-muted-foreground">
+              Opérationnel en une journée — pas besoin de consultant ni de formation longue.
+              Vos agents encaissent sur le terrain, le gérant suit tout depuis le bureau.
+            </p>
+          </div>
+          <LandingImage
+            src={LANDING_IMAGES.mobileAgent}
+            alt="Agent sur le terrain encaissant un paiement Wave ou Orange Money"
+            className="aspect-[4/3]"
+            sizes="(max-width: 1024px) 100vw, 50vw"
+          />
         </div>
         <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
           {STEPS.map(({ step, title, description }) => (
@@ -433,21 +490,26 @@ export function LandingUseCases() {
           </p>
         </div>
         <div className="grid gap-6 md:grid-cols-3">
-          {USE_CASES.map(({ icon: Icon, title, description, accent }) => (
+          {USE_CASES.map(({ icon: Icon, title, description, image, imageAlt }) => (
             <div
               key={title}
-              className="flex flex-col overflow-hidden rounded-xl border bg-card shadow-sm transition-shadow hover:shadow-md"
+              className="overflow-hidden rounded-xl border bg-card shadow-sm transition-shadow hover:shadow-md"
             >
-              <div
-                className={`flex h-28 items-center justify-center bg-gradient-to-br ${accent}`}
-              >
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-background shadow-sm ring-1 ring-black/5">
-                  <Icon className="h-7 w-7 text-primary" />
-                </div>
+              <div className="relative aspect-[16/10] w-full bg-muted/20">
+                <Image
+                  src={image}
+                  alt={imageAlt}
+                  fill
+                  sizes="(max-width: 768px) 100vw, 33vw"
+                  className="object-cover"
+                />
               </div>
-              <div className="flex flex-1 flex-col p-6">
+              <div className="p-6">
+                <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                  <Icon className="h-5 w-5 text-primary" />
+                </div>
                 <h3 className="font-semibold">{title}</h3>
-                <p className="mt-2 flex-1 text-sm text-muted-foreground">{description}</p>
+                <p className="mt-2 text-sm text-muted-foreground">{description}</p>
               </div>
             </div>
           ))}
@@ -549,7 +611,18 @@ export function LandingFAQ() {
 
 export function LandingCTA() {
   return (
-    <section className="relative overflow-hidden bg-gradient-to-b from-background to-emerald-50/40 px-4 py-20">
+    <section className="relative overflow-hidden px-4 py-20">
+      <div className="absolute inset-0 -z-10">
+        <Image
+          src={LANDING_IMAGES.hero}
+          alt=""
+          fill
+          className="object-cover object-center opacity-[0.12]"
+          sizes="100vw"
+          aria-hidden
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-background/90 via-background/95 to-emerald-50/50" />
+      </div>
       <div className="mx-auto max-w-4xl rounded-2xl bg-primary px-8 py-12 text-center text-primary-foreground shadow-xl sm:px-12">
         <h2 className="text-3xl font-bold sm:text-4xl">
           Prêt à sécuriser vos ventes ?

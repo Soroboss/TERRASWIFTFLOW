@@ -7,6 +7,7 @@ interface LandingImageProps {
   className?: string;
   priority?: boolean;
   sizes?: string;
+  objectFit?: "cover" | "contain";
 }
 
 export function LandingImage({
@@ -15,11 +16,13 @@ export function LandingImage({
   className,
   priority = false,
   sizes = "(max-width: 768px) 100vw, 50vw",
+  objectFit = "cover",
 }: LandingImageProps) {
   return (
     <div
       className={cn(
         "relative overflow-hidden rounded-2xl border bg-card shadow-lg shadow-primary/5",
+        objectFit === "contain" && "bg-muted/30",
         className
       )}
     >
@@ -29,7 +32,7 @@ export function LandingImage({
         fill
         priority={priority}
         sizes={sizes}
-        className="object-cover"
+        className={objectFit === "contain" ? "object-contain p-1" : "object-cover"}
       />
     </div>
   );
